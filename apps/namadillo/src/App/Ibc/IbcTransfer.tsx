@@ -10,15 +10,44 @@ import { Tendermint34Client } from "@cosmjs/tendermint-rpc";
 import { Window as KeplrWindow } from "@keplr-wallet/types";
 import { Panel } from "@namada/components";
 import { DerivedAccount, WindowWithNamada } from "@namada/types";
-import { useState } from "react";
+import { TransferModule } from "App/Transfer/TransferModule";
+import { wallets } from "integrations";
+import { useEffect, useMemo, useState } from "react";
+import { WalletProvider } from "types";
 
-const keplr = (window as KeplrWindow).keplr!;
 const namada = (window as WindowWithNamada).namada!;
+const keplr = (window as KeplrWindow).keplr!;
 
-const chain = "theta-testnet-001";
-const rpc = "https://rpc-t.cosmos.nodestake.top";
+import { chain as celestia } from "chain-registry/mainnet/celestia";
+import { chain as cosmos } from "chain-registry/mainnet/cosmoshub";
+import { chain as dydx } from "chain-registry/mainnet/dydx";
+import { chain as osmosis } from "chain-registry/mainnet/osmosis";
+import { chain as stargaze } from "chain-registry/mainnet/stargaze";
+import { chain as stride } from "chain-registry/mainnet/stride";
 
-const buttonStyles = "bg-white my-2 p-2 block";
+import { useIntegration } from "@namada/integrations";
+import { selectedIBCChainAtom } from "atoms/integrations";
+import { chain as celestiaTestnet } from "chain-registry/testnet/celestiatestnet3";
+import { chain as cosmosTestnet } from "chain-registry/testnet/cosmoshubtestnet";
+import { chain as dydxTestnet } from "chain-registry/testnet/dydxtestnet";
+import { chain as osmosisTestnet } from "chain-registry/testnet/osmosistestnet4";
+import { chain as stargazeTestnet } from "chain-registry/testnet/stargazetestnet";
+import { chain as strideTestnet } from "chain-registry/testnet/stridetestnet";
+import { useAtom } from "jotai";
+
+const availableChains =
+  import.meta.env.PROD ?
+    [celestia, cosmos, dydx, osmosis, stargaze, stride]
+  : [
+      celestiaTestnet,
+      cosmosTestnet,
+      osmosisTestnet,
+      stargazeTestnet,
+      strideTestnet,
+      dydxTestnet,
+    ];
+
+const availableChainIds = availableChains.map((chain) => chain.chain_id);
 
 export const IbcTransfer: React.FC = () => {
   const [error, setError] = useState("");
@@ -30,6 +59,40 @@ export const IbcTransfer: React.FC = () => {
   const [target, setTarget] = useState("");
   const [amount, setAmount] = useState("");
   const [channelId, setChannelId] = useState("");
+  const [wallet, setWallet] = useState<WalletProvider | undefined>();
+  const [chainId, setChainId] = useAtom(selectedIBCChainAtom);
+  const keplr = useIntegration("keplr");
+
+  const buttonStyles = "bg-white my-2 p-2 block";
+
+  useEffect(() => {
+    onConnectKeplrWallet();
+  }, [chainId]);
+
+  const chain = useMemo(() => {
+    return availableChains.find((chain) => chain.chain_id === chainId);
+  }, [chainId]);
+
+  const onConnectKeplrWallet = async (): Promise<void> => {
+    if (keplr.detect() && chainId) {
+      await keplr.instance?.enable(chainId);
+      const address = await fetchWalletAddress();
+      if (address) {
+        setAddress(address);
+
+        if (chain && chain.apis?.rpc && chain.apis.rpc.length > 0) {
+          const balances = await queryBalances(
+            address,
+            chain.apis?.rpc[0].address
+          );
+          console.log("balances >> ", balances);
+        }
+      }
+      // if (accounts && accounts.length > 0) {
+      //   setAddress(accounts[0]);
+      // }
+    }
+  };
 
   const withErrorReporting =
     (fn: () => Promise<void>): (() => Promise<void>) =>
@@ -44,16 +107,20 @@ export const IbcTransfer: React.FC = () => {
       }
     };
 
-  const getAddress = withErrorReporting(async () => {
-    const key = await keplr.getKey(chain);
-    setAddress(key.bech32Address);
-    setAlias(key.name);
-  });
+  const fetchWalletAddress = async (): Promise<string> => {
+    if (chainId) {
+      const key = await keplr.instance?.getKey(chainId);
+      return key?.bech32Address || "";
+    }
+    return "";
+  };
+
+  const onChangeWallet = (): void => {};
 
   const getBalances = withErrorReporting(async () => {
-    setBalances(undefined);
-    const balances = await queryBalances(address);
-    setBalances(balances);
+    // setBalances(undefined);
+    // const balances = await queryBalances(address);
+    // setBalances(balances);
   });
 
   const getNamadaAccounts = withErrorReporting(async () => {
@@ -61,95 +128,115 @@ export const IbcTransfer: React.FC = () => {
     setNamadaAccounts(accounts);
   });
 
-  const submitIbcTransfer = withErrorReporting(async () =>
-    submitBridgeTransfer(rpc, chain, address, target, token, amount, channelId)
+  const submitIbcTransfer = withErrorReporting(
+    async () => {
+      /* submitBridgeTransfer(rpc, chain, address, target, token, amount, channelId)*/
+      return;
+    }
+    // submitBridgeTransfer(rpc, chain, address, target, token, amount, channelId)
   );
 
   return (
-    <Panel title="IBC" className="mb-2 bg-[#999999] text-black">
-      {/* Error */}
-      <p className="text-[#ff0000]">{error}</p>
+    <>
+      <Panel>
+        <header className="text-center mb-4">
+          <h2>IBC Transfer to Namada</h2>
+        </header>
+        <TransferModule
+          source={{
+            availableChains,
+            wallet: wallets.keplr,
+            walletAddress: address,
+            onChangeChain: (chain) => {
+              setChainId(chain.chain_id);
+              fetchWalletAddress();
+            },
+            onChangeWallet,
+            chain:
+              chainId ?
+                availableChains.find((chain) => chain.chain_id === chainId)
+              : undefined,
+          }}
+          destination={{ availableWallets: [] }}
+          onSubmitTransfer={() => {}}
+        />
+      </Panel>
 
-      <hr />
+      <Panel title="IBC" className="mb-2 bg-[#999999] text-black">
+        {/* Error */}
+        <p className="text-[#ff0000]">{error}</p>
 
-      {/* Keplr addresses */}
-      <h3>Keplr addresses</h3>
-      <button className={buttonStyles} onClick={getAddress}>
-        get address
-      </button>
-      <p>
-        {alias} {address}
-      </p>
+        {/* Balances */}
+        <h3>Balances</h3>
+        <button className={buttonStyles} onClick={getBalances}>
+          get balances
+        </button>
+        {balances?.map(({ denom, amount }) => (
+          <div key={denom}>
+            <label>
+              <input
+                type="radio"
+                name="token"
+                value={denom}
+                checked={token === denom}
+                onChange={(e) => setToken(e.target.value)}
+              />
+              {denom} {amount}
+            </label>
+          </div>
+        ))}
 
-      <hr />
+        <hr />
 
-      {/* Balances */}
-      <h3>Balances</h3>
-      <button className={buttonStyles} onClick={getBalances}>
-        get balances
-      </button>
-      {balances?.map(({ denom, amount }) => (
-        <div key={denom}>
-          <label>
-            <input
-              type="radio"
-              name="token"
-              value={denom}
-              checked={token === denom}
-              onChange={(e) => setToken(e.target.value)}
-            />
-            {denom} {amount}
-          </label>
-        </div>
-      ))}
+        {/* Namada accounts */}
+        <h3>Namada accounts</h3>
+        <button className={buttonStyles} onClick={getNamadaAccounts}>
+          get namada accounts
+        </button>
 
-      <hr />
+        {namadaAccounts?.map(({ alias, address }) => (
+          <div key={address}>
+            <label>
+              <input
+                type="radio"
+                name="target"
+                value={address}
+                checked={target === address}
+                onChange={(e) => setTarget(e.target.value)}
+              />
+              {alias} {address}
+            </label>
+          </div>
+        ))}
 
-      {/* Namada accounts */}
-      <h3>Namada accounts</h3>
-      <button className={buttonStyles} onClick={getNamadaAccounts}>
-        get namada accounts
-      </button>
+        <hr />
 
-      {namadaAccounts?.map(({ alias, address }) => (
-        <div key={address}>
-          <label>
-            <input
-              type="radio"
-              name="target"
-              value={address}
-              checked={target === address}
-              onChange={(e) => setTarget(e.target.value)}
-            />
-            {alias} {address}
-          </label>
-        </div>
-      ))}
+        {/* Amount to send */}
+        <h3>Amount to send</h3>
+        <input value={amount} onChange={(e) => setAmount(e.target.value)} />
 
-      <hr />
+        <hr />
 
-      {/* Amount to send */}
-      <h3>Amount to send</h3>
-      <input value={amount} onChange={(e) => setAmount(e.target.value)} />
+        {/* Channel ID */}
+        <h3>Channel ID</h3>
+        <input
+          value={channelId}
+          onChange={(e) => setChannelId(e.target.value)}
+        />
 
-      <hr />
+        <hr />
 
-      {/* Channel ID */}
-      <h3>Channel ID</h3>
-      <input value={channelId} onChange={(e) => setChannelId(e.target.value)} />
-
-      <hr />
-
-      {/* Submit IBC transfer */}
-      <h3>Submit IBC transfer</h3>
-      <button className={buttonStyles} onClick={submitIbcTransfer}>
-        submit IBC transfer
-      </button>
-    </Panel>
+        {/* Submit IBC transfer */}
+        <h3>Submit IBC transfer</h3>
+        <button className={buttonStyles} onClick={submitIbcTransfer}>
+          submit IBC transfer
+        </button>
+      </Panel>
+    </>
   );
 };
 
-const queryBalances = async (owner: string): Promise<Coin[]> => {
+const queryBalances = async (owner: string, rpc: string): Promise<Coin[]> => {
   const client = await StargateClient.connect(rpc);
   const balances = (await client.getAllBalances(owner)) || [];
 
