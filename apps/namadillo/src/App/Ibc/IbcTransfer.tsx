@@ -33,6 +33,7 @@ export const IbcTransfer: React.FC = () => {
   const [shielded, setShielded] = useState<boolean>(true);
   const [selectedAsset, setSelectedAsset] = useState<Asset>();
   const [currentStep, setCurrentStep] = useState(0);
+  const [generalErrorMessage, setGeneralErrorMessage] = useState("");
   const performIbcTransfer = useAtomValue(ibcTransferAtom);
   const defaultAccounts = useAtomValue(allDefaultAccountsAtom);
   const {
@@ -76,11 +77,11 @@ export const IbcTransfer: React.FC = () => {
       }
 
       if (!chainId) {
-        throw new Error("chain ID is undefined");
+        throw new Error("Chain ID is undefined");
       }
 
       if (!selectedAsset) {
-        throw new Error("no asset is selected");
+        throw new Error("No asset is selected");
       }
 
       if (!registry) {
@@ -115,7 +116,8 @@ export const IbcTransfer: React.FC = () => {
         },
       });
       setCurrentStep(2);
-    } catch {
+    } catch (err) {
+      setGeneralErrorMessage(err + "");
       setCurrentStep(0);
     }
   };
@@ -167,6 +169,7 @@ export const IbcTransfer: React.FC = () => {
               transactionFee={new BigNumber(0.0001) /*TODO: fix this*/}
               isSubmitting={performIbcTransfer.isPending}
               requiresIbcChannels={true}
+              errorMessage={generalErrorMessage}
               onSubmitTransfer={onSubmitTransfer}
             />
           </motion.div>

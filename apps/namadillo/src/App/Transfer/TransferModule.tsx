@@ -1,5 +1,6 @@
 import { Asset, Chain, Chains } from "@chain-registry/types";
 import { ActionButton, Stack } from "@namada/components";
+import { InlineError } from "App/Common/InlineError";
 import BigNumber from "bignumber.js";
 import { useState } from "react";
 import { WalletProvider } from "types";
@@ -23,6 +24,7 @@ export type TransferModuleConfig = {
   chain?: Chain;
   onChangeChain?: (chain: Chain) => void;
   isShielded?: boolean;
+  errorMessage?: string;
 };
 
 export type TransferSourceProps = TransferModuleConfig & {
@@ -56,6 +58,7 @@ export type TransferModuleProps = {
   transactionFee?: BigNumber;
   isSubmitting?: boolean;
   requiresIbcChannels?: boolean;
+  errorMessage?: string;
   onSubmitTransfer: (params: OnSubmitTransferParams) => void;
 };
 
@@ -66,6 +69,7 @@ export const TransferModule = ({
   isSubmitting,
   requiresIbcChannels,
   onSubmitTransfer,
+  errorMessage,
 }: TransferModuleProps): JSX.Element => {
   const [walletSelectorModalOpen, setWalletSelectorModalOpen] = useState(false);
   const [sourceChainModalOpen, setSourceChainModalOpen] = useState(false);
@@ -161,6 +165,33 @@ export const TransferModule = ({
     }
   };
 
+  const getButtonText = (): string => {
+    if (isSubmitting) {
+      return "Submitting...";
+    }
+
+    if (!source.wallet) {
+      return "Select Wallet";
+    }
+
+    if (!source.chain || !destination.chain) {
+      return "Select Chain";
+    }
+
+    if (!source.selectedAsset && source.onChangeSelectedAsset) {
+      return "Select Asset";
+    }
+
+    // TODO: this should be updated for nfts
+    if (!amount || amount.eq(0)) {
+      return "Define an amount to transfer";
+    }
+
+    // TODO: amount + fee < available amount
+
+    return "Submit";
+  };
+
   return (
     <>
       <section className="max-w-[480px] mx-auto" role="widget">
@@ -223,14 +254,14 @@ export const TransferModule = ({
               onChangeDestination={setDestinationIbcChannel}
             />
           )}
+          <InlineError errorMessage={errorMessage} />
           <ActionButton
             backgroundColor={
               destination.isShielded || source.isShielded ? "yellow" : "white"
             }
             disabled={!source.wallet || !validateTransfer() || isSubmitting}
           >
-            {isSubmitting && "Submitting..."}
-            {!isSubmitting && (source.wallet ? "Submit" : "Select Wallet")}
+            {getButtonText()}
           </ActionButton>
         </Stack>
       </section>
