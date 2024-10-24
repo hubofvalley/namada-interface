@@ -233,7 +233,7 @@ export const IbcTransfer: React.FC = () => {
               }}
               transactionFee={transactionFee}
               isSubmitting={performIbcTransfer.isPending}
-              requiresIbcChannels={true}
+              isIbcTransfer={true}
               errorMessage={generalErrorMessage}
               onSubmitTransfer={onSubmitTransfer}
             />
