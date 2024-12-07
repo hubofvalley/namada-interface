@@ -1,4 +1,4 @@
-import { DefaultApi } from "@namada/indexer-client";
+import { DefaultApi, GasPriceTableInner } from "@namada/indexer-client";
 import { mapUndefined } from "@namada/utils";
 import BigNumber from "bignumber.js";
 import invariant from "invariant";
@@ -43,4 +43,10 @@ export const fetchMinimumGasPrice = async (
     "Error converting minimum gas price to BigNumber"
   );
   return asBigNumber;
+};
+
+export const fetchGasPriceForAllTokens = async (
+  api: DefaultApi
+): Promise<GasPriceTableInner[]> => {
+  return (await api.apiV1GasPriceGet()).data;
 };

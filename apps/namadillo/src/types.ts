@@ -36,8 +36,6 @@ export type GasConfig = {
   gasPrice: GasPrice;
 };
 
-export type GasRangeOption = "low" | "average" | "high";
-
 export type TxGas = Record<Address, GasLimit>;
 
 export type GasTable = Record<TxKind, TxGas>;

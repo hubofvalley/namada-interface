@@ -27,7 +27,12 @@ export const TransactionFees = ({
         <TextLink>Transaction fee:</TextLink>{" "}
         <NamCurrency className="font-medium" amount={fee} />
       </button>
-      {modalOpen && <GasUsageModal onClose={() => setModalOpen(false)} />}
+      {modalOpen && (
+        <GasUsageModal
+          gasConfig={gasConfig}
+          onClose={() => setModalOpen(false)}
+        />
+      )}
     </>
   );
 };

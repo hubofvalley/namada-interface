@@ -1,3 +1,4 @@
+import { GasPriceTableInner } from "@namada/indexer-client";
 import { defaultAccountAtom } from "atoms/accounts";
 import { indexerApiAtom } from "atoms/api";
 import { nativeTokenAddressAtom } from "atoms/chain";
@@ -9,7 +10,11 @@ import { atomFamily } from "jotai/utils";
 import { isPublicKeyRevealed } from "lib/query";
 import { GasConfig, GasTable } from "types";
 import { TxKind } from "types/txKind";
-import { fetchGasLimit, fetchMinimumGasPrice } from "./services";
+import {
+  fetchGasLimit,
+  fetchGasPriceForAllTokens,
+  fetchMinimumGasPrice,
+} from "./services";
 
 export const gasCostTxKindAtom = atom<TxKind | undefined>(undefined);
 
@@ -69,4 +74,14 @@ export const defaultGasConfigFamily = atomFamily(
     }),
   // Hacky way to compare two objects
   (a, b) => JSON.stringify(a) === JSON.stringify(b)
+);
+
+export const gasPriceForAllTokensAtom = atomWithQuery<GasPriceTableInner[]>(
+  (get) => {
+    const api = get(indexerApiAtom);
+    return {
+      queryKey: ["gas-price-for-all-tokens"],
+      queryFn: () => fetchGasPriceForAllTokens(api),
+    };
+  }
 );
