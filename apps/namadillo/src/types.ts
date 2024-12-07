@@ -73,7 +73,7 @@ export type SettingsStorage = {
   indexerUrl: string;
   maspIndexerUrl?: string;
   signArbitraryEnabled: boolean;
-  gasUsageOption?: GasRangeOption;
+  preferableGasToken?: Address;
   enableTestnets?: boolean;
 };
 

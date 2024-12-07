@@ -1,6 +1,6 @@
 import { Modal, Stack } from "@namada/components";
 import { minimumGasPriceAtom } from "atoms/fees";
-import { gasUsageOptionAtom } from "atoms/settings";
+import { preferableGasTokenAtom } from "atoms/settings/atoms";
 import { useAtom, useAtomValue } from "jotai";
 import { twMerge } from "tailwind-merge";
 import { GasFeeOption } from "./GasFeeOption";
@@ -12,7 +12,7 @@ type GasUsageModalProps = {
 export const GasUsageModal = ({ onClose }: GasUsageModalProps): JSX.Element => {
   const minimumGasFee = useAtomValue(minimumGasPriceAtom);
 
-  const [gasUsageOption, setGasUsageOption] = useAtom(gasUsageOptionAtom);
+  const [gasUsageOption, setGasUsageOption] = useAtom(preferableGasTokenAtom);
 
   if (!minimumGasFee.isSuccess) {
     return <></>;
