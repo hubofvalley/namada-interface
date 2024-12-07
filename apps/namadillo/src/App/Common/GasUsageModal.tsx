@@ -1,4 +1,5 @@
 import { Currency, Modal, Stack } from "@namada/components";
+import { tokenPricesAtom } from "atoms/balance";
 import { gasPriceForAllTokensAtom } from "atoms/fees/atoms";
 import { preferableGasTokenAtom } from "atoms/settings";
 import BigNumber from "bignumber.js";
@@ -18,20 +19,19 @@ export const GasUsageModal = ({
     preferableGasTokenAtom
   );
   const gasPriceForAllTokens = useAtomValue(gasPriceForAllTokensAtom);
+  const tokenPrices = useAtomValue(tokenPricesAtom);
 
-  const list = gasPriceForAllTokens.data?.map((item) => {
-    const gasPrice = BigNumber(item.minDenomAmount);
+  const list = gasPriceForAllTokens.data?.map(({ token, minDenomAmount }) => {
+    const gasPrice = BigNumber(minDenomAmount);
+    const amount = gasPrice.multipliedBy(gasConfig.gasLimit);
+    const price = tokenPrices.data?.[token];
+    const dollar = price ? amount.multipliedBy(price) : undefined;
     return {
-      token: item.token,
-      amount: gasPrice.multipliedBy(gasConfig.gasLimit),
+      token,
+      amount,
+      dollar,
     };
   });
-
-  // TODO
-  const amount = gasConfig.gasPrice;
-  const price = 2;
-  const dollar = amount.multipliedBy(price);
-  const symbol = preferableGasToken ?? "?";
 
   return (
     <Modal onClose={onClose}>
@@ -42,43 +42,32 @@ export const GasUsageModal = ({
         )}
       >
         <h2 className="text-sm mb-4">Fee</h2>
+        <div>preferableGasToken: {preferableGasToken}</div>
         <Stack gap={4}>
-          <div>
-            <label>
-              <div
-                className={twMerge(
-                  "flex flex-col py-5 text-center font-medium leading-4 cursor-pointer",
-                  "bg-rblack transition-colors duration-150 ease-out-quad",
-                  "select-none hover:bg-neutral-700"
-                )}
-              >
-                {dollar && (
-                  <div className="text-xs text-neutral-500 mt-1">
-                    <FiatCurrency amount={dollar} />
-                  </div>
-                )}
-                <div className="mt-2">
-                  <Currency
-                    amount={amount}
-                    currency={{ symbol }}
-                    currencyPosition="right"
-                    spaceAroundSymbol
-                  />
-                </div>
+          {list?.map((item) => (
+            <button
+              key={item.token}
+              className={twMerge(
+                "bg-rblack p-5",
+                "hover:text-yellow transition-colors duration-300"
+              )}
+              onClick={() => setPreferableGasToken(item.token)}
+            >
+              <div className="mt-2">
+                <Currency
+                  amount={item.amount}
+                  currency={{ symbol: item.token }}
+                  currencyPosition="right"
+                  spaceAroundSymbol
+                />
               </div>
-            </label>
-          </div>
-          <select
-            value={symbol}
-            onChange={(e) => setPreferableGasToken(e.target.value)}
-            className="text-black"
-          >
-            {list?.map((item) => (
-              <option key={item.token} value={item.token}>
-                {item.amount.toString()} - {item.token}
-              </option>
-            ))}
-          </select>
+              {item.dollar && (
+                <div className="text-xs text-neutral-500">
+                  <FiatCurrency amount={item.dollar} />
+                </div>
+              )}
+            </button>
+          ))}
         </Stack>
       </div>
     </Modal>
