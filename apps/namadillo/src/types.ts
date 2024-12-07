@@ -36,6 +36,8 @@ export type GasConfig = {
   gasPrice: GasPrice;
 };
 
+export type GasRangeOption = "low" | "average" | "high";
+
 export type TxGas = Record<Address, GasLimit>;
 
 export type GasTable = Record<TxKind, TxGas>;
@@ -71,6 +73,7 @@ export type SettingsStorage = {
   indexerUrl: string;
   maspIndexerUrl?: string;
   signArbitraryEnabled: boolean;
+  gasUsageOption?: GasRangeOption;
   enableTestnets?: boolean;
 };
 

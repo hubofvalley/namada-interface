@@ -3,7 +3,7 @@ import { indexerRpcUrlAtom } from "atoms/chain";
 import { Getter, Setter, atom, getDefaultStore } from "jotai";
 import { atomWithMutation, atomWithQuery } from "jotai-tanstack-query";
 import { atomWithStorage } from "jotai/utils";
-import { SettingsStorage } from "types";
+import { GasRangeOption, SettingsStorage } from "types";
 import {
   fetchDefaultTomlConfig,
   isIndexerAlive,
@@ -49,11 +49,9 @@ export const defaultServerConfigAtom = atomWithQuery((_get) => {
 
 export const defaultLocalStorageProps = {
   version: "0.1",
-  fiat: "usd",
   indexerUrl: "",
   signArbitraryEnabled: false,
-  testnetsEnabled: false,
-};
+} satisfies SettingsStorage;
 
 export const settingsAtom = atomWithStorage<SettingsStorage>(
   "namadillo:settings",
@@ -191,6 +189,11 @@ export const updateMaspIndexerUrlAtom = atomWithMutation(() => {
 export const signArbitraryEnabledAtom = atom(
   (get) => get(settingsAtom).signArbitraryEnabled,
   changeSettings<boolean>("signArbitraryEnabled")
+);
+
+export const gasUsageOptionAtom = atom(
+  (get) => get(settingsAtom).gasUsageOption,
+  changeSettings<GasRangeOption>("gasUsageOption")
 );
 
 export const indexerHeartbeatAtom = atomWithQuery((get) => {
