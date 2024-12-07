@@ -373,8 +373,7 @@ export const TransferModule = ({
 
       {destinationChainModalOpen &&
         destination.onChangeChain &&
-        destination.wallet &&
-        destination.walletAddress && (
+        destination.wallet && (
           <SelectChainModal
             onClose={() => setDestinationChainModalOpen(false)}
             chains={destination.availableChains || []}
