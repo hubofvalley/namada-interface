@@ -1,10 +1,8 @@
-import { DefaultApi } from "@namada/indexer-client";
+import { DefaultApi, GasPriceTableInner } from "@namada/indexer-client";
 import { mapUndefined } from "@namada/utils";
 import BigNumber from "bignumber.js";
-import invariant from "invariant";
-import { GasTable } from "types";
+import { Address, GasTable } from "types";
 import { txKinds } from "types/txKind";
-import { namadaAsset, toDisplayAmount } from "utils";
 import { txKindToIndexer } from "./functions";
 
 export const fetchGasLimit = async (api: DefaultApi): Promise<GasTable> => {
@@ -25,22 +23,39 @@ export const fetchGasLimit = async (api: DefaultApi): Promise<GasTable> => {
   }, {} as GasTable);
 };
 
+const mock = [
+  {
+    token: "tnam1p5nnjnasjtfwen2kzg78fumwfs0eycqpecuc2jwz", // uatom
+    minDenomAmount: "0.02",
+  },
+  {
+    token: "tnam1p5z8ruwyu7ha8urhq2l0dhpk2f5dv3ts7uyf2n75", // uosmo
+    minDenomAmount: "3",
+  },
+];
+
 export const fetchMinimumGasPrice = async (
   api: DefaultApi,
-  nativeToken: string
-): Promise<BigNumber> => {
-  const gasTableResponse = await api.apiV1GasPriceTokenGet(nativeToken);
-  const nativeTokenCost = gasTableResponse.data.find(
-    ({ token }) => token === nativeToken
-  );
-  invariant(!!nativeTokenCost, "Error querying minimum gas price");
-  const asBigNumber = toDisplayAmount(
-    namadaAsset(),
-    BigNumber(nativeTokenCost.minDenomAmount)
-  );
-  invariant(
-    !asBigNumber.isNaN(),
-    "Error converting minimum gas price to BigNumber"
-  );
-  return asBigNumber;
+  tokenAddress: Address
+): Promise<GasPriceTableInner[]> => {
+  // TODO remove mock
+  const mockItem = mock.find((item) => item.token === tokenAddress);
+  if (mockItem) {
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        resolve([mockItem]);
+      }, 500);
+    });
+  }
+  return (await api.apiV1GasPriceTokenGet(tokenAddress)).data;
+};
+
+export const fetchGasPriceForAllTokens = async (
+  api: DefaultApi
+): Promise<GasPriceTableInner[]> => {
+  return [
+    ...(await api.apiV1GasPriceGet()).data,
+    // TODO remove mock
+    ...mock,
+  ];
 };

@@ -34,6 +34,7 @@ export type AddressBalance = Record<Address, BigNumber>;
 export type GasConfig = {
   gasLimit: GasLimit;
   gasPrice: GasPrice;
+  gasToken: Address;
 };
 
 export type TxGas = Record<Address, GasLimit>;
