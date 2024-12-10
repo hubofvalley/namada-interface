@@ -1,14 +1,19 @@
 import { GasPriceTableInner } from "@namada/indexer-client";
 import { defaultAccountAtom } from "atoms/accounts";
 import { indexerApiAtom } from "atoms/api";
-import { nativeTokenAddressAtom } from "atoms/chain";
+import { mapNamadaAddressesToAssets } from "atoms/balance/functions";
+import {
+  chainParametersAtom,
+  nativeTokenAddressAtom,
+  tokenAddressesAtom,
+} from "atoms/chain";
 import { queryDependentFn } from "atoms/utils";
 import BigNumber from "bignumber.js";
 import { atom } from "jotai";
 import { atomWithQuery } from "jotai-tanstack-query";
 import { atomFamily } from "jotai/utils";
 import { isPublicKeyRevealed } from "lib/query";
-import { GasConfig, GasTable } from "types";
+import { AddressWithAssetAndAmountMap, GasConfig, GasTable } from "types";
 import { TxKind } from "types/txKind";
 import {
   fetchGasLimit,
@@ -82,6 +87,41 @@ export const gasPriceForAllTokensAtom = atomWithQuery<GasPriceTableInner[]>(
     return {
       queryKey: ["gas-price-for-all-tokens"],
       queryFn: () => fetchGasPriceForAllTokens(api),
+    };
+  }
+);
+
+export const gasTokenOptionsAtom = atomWithQuery<AddressWithAssetAndAmountMap>(
+  (get) => {
+    const gasPriceForAllTokens = get(gasPriceForAllTokensAtom);
+    const tokenAddresses = get(tokenAddressesAtom);
+    const chainParameters = get(chainParametersAtom);
+
+    return {
+      queryKey: [
+        "namada-transparent-assets",
+        gasPriceForAllTokens.data,
+        tokenAddresses.data,
+        chainParameters.data?.chainId,
+      ],
+      ...queryDependentFn(async () => {
+        if (
+          !gasPriceForAllTokens.data ||
+          !tokenAddresses.data ||
+          !chainParameters.data
+        ) {
+          return {};
+        }
+        const formattedData = gasPriceForAllTokens.data.map((item) => ({
+          address: item.token,
+          minDenomAmount: new BigNumber(item.minDenomAmount),
+        }));
+        return mapNamadaAddressesToAssets(
+          formattedData,
+          tokenAddresses.data,
+          chainParameters.data.chainId
+        );
+      }, [gasPriceForAllTokens, tokenAddresses, chainParameters]),
     };
   }
 );

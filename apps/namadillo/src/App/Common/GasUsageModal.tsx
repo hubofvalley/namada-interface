@@ -1,12 +1,14 @@
-import { Currency, Modal, Stack } from "@namada/components";
-import { tokenPricesAtom } from "atoms/balance";
-import { gasPriceForAllTokensAtom } from "atoms/fees/atoms";
-import { preferableGasTokenAtom } from "atoms/settings";
+import { Modal, Stack } from "@namada/components";
+import { tokenPricesAtom } from "atoms/balance/atoms";
+import { gasTokenOptionsAtom } from "atoms/fees/atoms";
+import { preferableGasTokenAtom } from "atoms/settings/atoms";
 import BigNumber from "bignumber.js";
 import { useAtom, useAtomValue } from "jotai";
+import { IoClose } from "react-icons/io5";
 import { twMerge } from "tailwind-merge";
 import { GasConfig } from "types";
 import { FiatCurrency } from "./FiatCurrency";
+import { TokenCurrency } from "./TokenCurrency";
 
 export const GasUsageModal = ({
   gasConfig,
@@ -18,16 +20,17 @@ export const GasUsageModal = ({
   const [preferableGasToken, setPreferableGasToken] = useAtom(
     preferableGasTokenAtom
   );
-  const gasPriceForAllTokens = useAtomValue(gasPriceForAllTokensAtom);
+
+  const gasTokenOptions = useAtomValue(gasTokenOptionsAtom);
   const tokenPrices = useAtomValue(tokenPricesAtom);
 
-  const list = gasPriceForAllTokens.data?.map(({ token, minDenomAmount }) => {
-    const gasPrice = BigNumber(minDenomAmount);
+  const list = Object.values(gasTokenOptions.data ?? {}).map((item) => {
+    const gasPrice = BigNumber(item.amount);
     const amount = gasPrice.multipliedBy(gasConfig.gasLimit);
-    const price = tokenPrices.data?.[token];
+    const price = tokenPrices.data?.[item.originalAddress];
     const dollar = price ? amount.multipliedBy(price) : undefined;
     return {
-      token,
+      ...item,
       amount,
       dollar,
     };
@@ -37,35 +40,55 @@ export const GasUsageModal = ({
     <Modal onClose={onClose}>
       <div
         className={twMerge(
-          "fixed bg-black min-w-[550px] top-1/2 left-1/2 -translate-y-1/2 -translate-x-1/2",
-          "px-6 py-7 bg-neutral-800 rounded-md"
+          "fixed min-w-[550px] top-1/2 left-1/2 -translate-y-1/2 -translate-x-1/2",
+          "px-6 py-7 bg-rblack border border-neutral-500 rounded-md"
         )}
       >
-        <h2 className="text-sm mb-4">Fee</h2>
-        <div>preferableGasToken: {preferableGasToken}</div>
-        <Stack gap={4}>
-          {list?.map((item) => (
+        <i
+          className={twMerge(
+            "cursor-pointer text-white absolute right-3 top-3 text-xl",
+            "hover:text-yellow transition-colors"
+          )}
+          onClick={onClose}
+        >
+          <IoClose />
+        </i>
+        <div className="text-center">
+          <h2 className="font-medium">Select Gas Token</h2>
+          <div className="text-sm mt-1">
+            Gas fees deducted from your Namada accounts
+          </div>
+        </div>
+        <Stack gap={4} className="mt-4 max-h-[60vh] overflow-auto">
+          {list.map((item) => (
             <button
-              key={item.token}
+              key={item.originalAddress}
               className={twMerge(
-                "bg-rblack p-5",
-                "hover:text-yellow transition-colors duration-300"
+                "flex justify-between items-center",
+                "bg-rblack px-5 py-2 rounded-sm",
+                "hover:text-yellow hover:border-yellow transition-colors duration-300",
+                item.originalAddress === preferableGasToken ?
+                  "border border-white"
+                : "m-px"
               )}
-              onClick={() => setPreferableGasToken(item.token)}
+              type="button"
+              onClick={() => {
+                setPreferableGasToken(item.originalAddress);
+                onClose();
+              }}
             >
-              <div className="mt-2">
-                <Currency
-                  amount={item.amount}
-                  currency={{ symbol: item.token }}
-                  currencyPosition="right"
-                  spaceAroundSymbol
-                />
-              </div>
-              {item.dollar && (
-                <div className="text-xs text-neutral-500">
+              <div>{item.asset.symbol}</div>
+              <div className="text-right">
+                {item.dollar !== undefined && (
                   <FiatCurrency amount={item.dollar} />
+                )}
+                <div className="text-xs">
+                  <TokenCurrency
+                    amount={item.amount}
+                    symbol={item.asset.symbol}
+                  />
                 </div>
-              )}
+              </div>
             </button>
           ))}
         </Stack>
