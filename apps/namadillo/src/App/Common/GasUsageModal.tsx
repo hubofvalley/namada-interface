@@ -1,6 +1,5 @@
-import { Modal, Stack } from "@namada/components";
-import { tokenPricesAtom } from "atoms/balance/atoms";
-import { gasTokenOptionsAtom } from "atoms/fees/atoms";
+import { Modal } from "@namada/components";
+import { gasDollarMapAtom, gasTokenOptionsAtom } from "atoms/fees/atoms";
 import { preferableGasTokenAtom } from "atoms/settings/atoms";
 import BigNumber from "bignumber.js";
 import { useAtom, useAtomValue } from "jotai";
@@ -20,14 +19,13 @@ export const GasUsageModal = ({
   const [preferableGasToken, setPreferableGasToken] = useAtom(
     preferableGasTokenAtom
   );
-
   const gasTokenOptions = useAtomValue(gasTokenOptionsAtom);
-  const tokenPrices = useAtomValue(tokenPricesAtom);
+  const gasDollarMap = useAtomValue(gasDollarMapAtom);
 
   const list = Object.values(gasTokenOptions.data ?? {}).map((item) => {
     const gasPrice = BigNumber(item.amount);
     const amount = gasPrice.multipliedBy(gasConfig.gasLimit);
-    const price = tokenPrices.data?.[item.originalAddress];
+    const price = gasDollarMap.data?.[item.originalAddress];
     const dollar = price ? amount.multipliedBy(price) : undefined;
     return {
       ...item,
@@ -59,7 +57,7 @@ export const GasUsageModal = ({
             Gas fees deducted from your Namada accounts
           </div>
         </div>
-        <Stack gap={4} className="mt-4 max-h-[60vh] overflow-auto">
+        <div className="flex flex-col mt-4 max-h-[60vh] overflow-auto">
           {list.map((item) => (
             <button
               key={item.originalAddress}
@@ -91,7 +89,7 @@ export const GasUsageModal = ({
               </div>
             </button>
           ))}
-        </Stack>
+        </div>
       </div>
     </Modal>
   );

@@ -48,5 +48,10 @@ export const fetchMinimumGasPrice = async (
 export const fetchGasPriceForAllTokens = async (
   api: DefaultApi
 ): Promise<GasPriceTableInner[]> => {
-  return (await api.apiV1GasPriceGet()).data;
+  return [
+    ...(await api.apiV1GasPriceGet()).data,
+    // TODO remove mock
+    { token: "tnam1atom", minDenomAmount: "0.02" },
+    { token: "tnam1osmo", minDenomAmount: "3" },
+  ];
 };

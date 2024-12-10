@@ -1,7 +1,10 @@
 import { GasPriceTableInner } from "@namada/indexer-client";
 import { defaultAccountAtom } from "atoms/accounts";
 import { indexerApiAtom } from "atoms/api";
-import { mapNamadaAddressesToAssets } from "atoms/balance/functions";
+import {
+  fetchTokenPrices,
+  mapNamadaAddressesToAssets,
+} from "atoms/balance/functions";
 import {
   chainParametersAtom,
   nativeTokenAddressAtom,
@@ -13,7 +16,12 @@ import { atom } from "jotai";
 import { atomWithQuery } from "jotai-tanstack-query";
 import { atomFamily } from "jotai/utils";
 import { isPublicKeyRevealed } from "lib/query";
-import { AddressWithAssetAndAmountMap, GasConfig, GasTable } from "types";
+import {
+  Address,
+  AddressWithAssetAndAmountMap,
+  GasConfig,
+  GasTable,
+} from "types";
 import { TxKind } from "types/txKind";
 import {
   fetchGasLimit,
@@ -87,6 +95,21 @@ export const gasPriceForAllTokensAtom = atomWithQuery<GasPriceTableInner[]>(
     return {
       queryKey: ["gas-price-for-all-tokens"],
       queryFn: () => fetchGasPriceForAllTokens(api),
+    };
+  }
+);
+
+export const gasDollarMapAtom = atomWithQuery<Record<Address, BigNumber>>(
+  (get) => {
+    const gasPriceForAllTokens = get(gasPriceForAllTokensAtom);
+    const tokenAddressesQuery = get(tokenAddressesAtom);
+
+    const addresses = gasPriceForAllTokens.data?.map((item) => item.token);
+    const tokens = tokenAddressesQuery.data;
+
+    return {
+      queryKey: ["gas-dollar-map", addresses, tokens],
+      queryFn: () => fetchTokenPrices(addresses ?? [], tokens ?? []),
     };
   }
 );
