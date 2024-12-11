@@ -731,15 +731,20 @@ impl Sdk {
         shielded.load().await?;
 
         let xvk = ExtendedViewingKey::from_str(&owner)?;
-        let rewards_estimate = shielded
-            .estimate_next_epoch_rewards(&self.namada, &xvk.as_viewing_key())
+        let raw_balance = shielded
+            .compute_shielded_balance(&xvk.as_viewing_key())
             .await
-            .unwrap()
-            .unsigned_abs();
+            .map_err(|e| JsError::new(&e.to_string()))?;
 
-        let amount = Amount::from_u128(rewards_estimate);
+        let denominated_amount = match raw_balance {
+            Some(raw_balance) => shielded
+                .estimate_next_epoch_rewards(&self.namada, &raw_balance)
+                .await
+                .map_err(|e| JsError::new(&e.to_string()))?,
+            None => DenominatedAmount::native(Amount::zero()),
+        };
 
-        to_js_result(amount.to_string())
+        to_js_result(denominated_amount.amount().to_string())
     }
 
     pub fn masp_address(&self) -> String {
