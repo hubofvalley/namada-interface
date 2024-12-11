@@ -215,10 +215,9 @@ export const Unstake = (): JSX.Element => {
               : validationMessage || "Unstake"}
             </ActionButton>
             {gasConfig && (
-              <TransactionFees
-                className="justify-self-end px-4"
-                gasConfig={gasConfig}
-              />
+              <div className="justify-self-end px-4">
+                <TransactionFees gasConfig={gasConfig} />
+              </div>
             )}
           </div>
         </form>

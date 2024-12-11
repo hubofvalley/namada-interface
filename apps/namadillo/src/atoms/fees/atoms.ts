@@ -61,28 +61,31 @@ export const minimumGasPriceAtom = atomWithQuery<BigNumber>((get) => {
   return {
     queryKey: ["minimum-gas-price", gasToken, Object.keys(chainAssetsMap)],
     queryFn: async () => {
-      invariant(gasToken, "Cannot query minimum gas for undefined token");
+      try {
+        invariant(gasToken, "Cannot query minimum gas for undefined token");
 
-      const tokenCost = (await fetchMinimumGasPrice(api, gasToken))[0];
-      if (!tokenCost) {
-        // if the token doesnt exists on the chain, reset the storage so we can use the default token as fallback
+        const tokenCost = (await fetchMinimumGasPrice(api, gasToken))[0];
+        invariant(tokenCost, "Error querying minimum gas price");
+
+        const asset = chainAssetsMap[gasToken];
+        invariant(asset, "Missing asset for gas price");
+
+        const asBigNumber = toDisplayAmount(
+          asset,
+          BigNumber(tokenCost.minDenomAmount)
+        );
+        invariant(
+          !asBigNumber.isNaN(),
+          "Error converting minimum gas price to BigNumber"
+        );
+        return asBigNumber;
+      } catch (e) {
+        // if something goes wrong when querying the gas price,
+        // reset the storage so we can use the default token as fallback
         const { set } = getDefaultStore();
         set(storageGasTokenAtom, RESET);
+        throw e;
       }
-      invariant(tokenCost, "Error querying minimum gas price");
-
-      const asset = chainAssetsMap[gasToken];
-      invariant(asset, "Missing asset for gas price");
-
-      const asBigNumber = toDisplayAmount(
-        asset,
-        BigNumber(tokenCost.minDenomAmount)
-      );
-      invariant(
-        !asBigNumber.isNaN(),
-        "Error converting minimum gas price to BigNumber"
-      );
-      return asBigNumber;
     },
   };
 });

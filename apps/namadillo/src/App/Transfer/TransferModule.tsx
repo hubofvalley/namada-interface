@@ -8,6 +8,7 @@ import {
   Address,
   AddressWithAssetAndAmount,
   AddressWithAssetAndAmountMap,
+  GasConfig,
   WalletProvider,
 } from "types";
 import { parseChainInfo } from "./common";
@@ -69,6 +70,7 @@ export type TransferModuleProps = {
   destination: TransferDestinationProps;
   requiresIbcChannels?: boolean;
   transactionFee?: TransactionFee;
+  gasConfig?: GasConfig;
   isSubmitting?: boolean;
   errorMessage?: string;
   onSubmitTransfer: (params: OnSubmitTransferParams) => void;
@@ -92,6 +94,7 @@ export const TransferModule = ({
   source,
   destination,
   transactionFee,
+  gasConfig,
   isSubmitting,
   isIbcTransfer,
   ibcOptions,
@@ -315,7 +318,7 @@ export const TransferModule = ({
             onChangeAddress={destination.onChangeCustomAddress}
             memo={memo}
             onChangeMemo={setMemo}
-            transactionFee={transactionFee}
+            gasConfig={gasConfig}
           />
           {isIbcTransfer && requiresIbcChannels && (
             <IbcChannels

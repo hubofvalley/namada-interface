@@ -183,10 +183,9 @@ export const WithProposalId: React.FC<{ proposalId: bigint }> = ({
             </Stack>
             <footer>
               {gasConfig.isSuccess && (
-                <TransactionFees
-                  className="flex justify-between"
-                  gasConfig={gasConfig.data}
-                />
+                <div className="justify-self-end">
+                  <TransactionFees gasConfig={gasConfig.data} />
+                </div>
               )}
             </footer>
             <ActionButton

@@ -162,10 +162,9 @@ export const ReDelegateAssignStake = ({
           isPerformingRedelegation={isPerformingRedelegation}
         />
         {gasConfig && (
-          <TransactionFees
-            className="justify-self-end px-4"
-            gasConfig={gasConfig}
-          />
+          <div className="justify-self-end px-4">
+            <TransactionFees gasConfig={gasConfig} />
+          </div>
         )}
       </div>
     </>

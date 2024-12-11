@@ -208,6 +208,7 @@ export const IbcWithdraw: React.FC = () => {
             }}
             onSubmitTransfer={submitIbcTransfer}
             transactionFee={transactionFee}
+            gasConfig={gasConfig}
             errorMessage={generalErrorMessage}
           />
         </>
