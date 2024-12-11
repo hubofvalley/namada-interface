@@ -22,10 +22,5 @@ export const fetchChainParameters = async (
 export const fetchChainTokens = async (
   api: DefaultApi
 ): Promise<(NativeToken | IbcToken)[]> => {
-  return [
-    ...(await api.apiV1ChainTokenGet()).data,
-    // TODO remove mock
-    { address: "tnam1atom", trace: "channel-0/uatom" },
-    { address: "tnam1osmo", trace: "channel-0/uosmo" },
-  ];
+  return (await api.apiV1ChainTokenGet()).data;
 };

@@ -3,7 +3,7 @@ import { indexerRpcUrlAtom } from "atoms/chain";
 import { Getter, Setter, atom, getDefaultStore } from "jotai";
 import { atomWithMutation, atomWithQuery } from "jotai-tanstack-query";
 import { atomWithStorage } from "jotai/utils";
-import { Address, SettingsStorage } from "types";
+import { SettingsStorage } from "types";
 import {
   fetchDefaultTomlConfig,
   isIndexerAlive,
@@ -189,11 +189,6 @@ export const updateMaspIndexerUrlAtom = atomWithMutation(() => {
 export const signArbitraryEnabledAtom = atom(
   (get) => get(settingsAtom).signArbitraryEnabled,
   changeSettings<boolean>("signArbitraryEnabled")
-);
-
-export const preferableGasTokenAtom = atom(
-  (get) => get(settingsAtom).preferableGasToken,
-  changeSettings<Address>("preferableGasToken")
 );
 
 export const indexerHeartbeatAtom = atomWithQuery((get) => {

@@ -1,9 +1,12 @@
+import { shortenAddress } from "@namada/utils";
+import { chainAssetsMapAtom } from "atoms/chain/atoms";
+import { useAtomValue } from "jotai";
 import { useState } from "react";
 import { twMerge } from "tailwind-merge";
 import { GasConfig } from "types";
 import { GasUsageModal } from "./GasUsageModal";
-import { NamCurrency } from "./NamCurrency";
 import { TextLink } from "./TextLink";
+import { TokenCurrency } from "./TokenCurrency";
 
 type TransactionFeesProps = {
   gasConfig: GasConfig;
@@ -15,6 +18,12 @@ export const TransactionFees = ({
   className,
 }: TransactionFeesProps): JSX.Element => {
   const [modalOpen, setModalOpen] = useState(false);
+  const chainAssetsMap = useAtomValue(chainAssetsMapAtom);
+
+  const symbol =
+    chainAssetsMap[gasConfig.gasToken]?.symbol ??
+    shortenAddress(gasConfig.gasToken);
+
   const fee = gasConfig.gasPrice.times(gasConfig.gasLimit);
 
   return (
@@ -25,7 +34,7 @@ export const TransactionFees = ({
         onClick={() => setModalOpen(true)}
       >
         <TextLink>Transaction fee:</TextLink>{" "}
-        <NamCurrency className="font-medium" amount={fee} />
+        <TokenCurrency symbol={symbol} amount={fee} className="font-medium" />
       </button>
       {modalOpen && (
         <GasUsageModal

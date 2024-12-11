@@ -7,8 +7,8 @@ import {
 } from "atoms/accounts/atoms";
 import {
   chainParametersAtom,
+  chainTokensAtom,
   nativeTokenAddressAtom,
-  tokenAddressesAtom,
 } from "atoms/chain";
 import { shouldUpdateBalanceAtom } from "atoms/etc";
 import { maspIndexerUrlAtom, rpcUrlAtom } from "atoms/settings";
@@ -92,7 +92,7 @@ export const shieldedBalanceAtom = atomWithQuery<
 >((get) => {
   const enablePolling = get(shouldUpdateBalanceAtom);
   const viewingKeysQuery = get(viewingKeysAtom);
-  const tokenAddressesQuery = get(tokenAddressesAtom);
+  const tokenAddressesQuery = get(chainTokensAtom);
   const namTokenAddressQuery = get(nativeTokenAddressAtom);
   const rpcUrl = get(rpcUrlAtom);
   const maspIndexerUrl = get(maspIndexerUrlAtom);
@@ -139,7 +139,7 @@ export const tokenPricesAtom = atomWithQuery((get) => {
   const shieldedBalanceQuery = get(shieldedBalanceAtom);
   const transparentBalanceQuery = get(transparentBalanceAtom);
   const namTokenAddressQuery = get(nativeTokenAddressAtom);
-  const tokenAddressesQuery = get(tokenAddressesAtom);
+  const tokenAddressesQuery = get(chainTokensAtom);
 
   // Get the list of addresses that exists on balances
   const obj: Record<string, true> = {};
@@ -168,7 +168,7 @@ export const tokenPricesAtom = atomWithQuery((get) => {
 
 export const namadaShieldedAssetsAtom = atomWithQuery((get) => {
   const shieldedBalances = get(shieldedBalanceAtom);
-  const tokenAddresses = get(tokenAddressesAtom);
+  const tokenAddresses = get(chainTokensAtom);
   const chainParameters = get(chainParametersAtom);
 
   return {
@@ -192,7 +192,7 @@ export const namadaShieldedAssetsAtom = atomWithQuery((get) => {
 
 export const namadaTransparentAssetsAtom = atomWithQuery((get) => {
   const transparentBalances = get(transparentBalanceAtom);
-  const tokenAddresses = get(tokenAddressesAtom);
+  const tokenAddresses = get(chainTokensAtom);
   const chainParameters = get(chainParametersAtom);
 
   return {

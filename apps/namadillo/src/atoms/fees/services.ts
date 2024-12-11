@@ -1,10 +1,8 @@
 import { DefaultApi, GasPriceTableInner } from "@namada/indexer-client";
 import { mapUndefined } from "@namada/utils";
 import BigNumber from "bignumber.js";
-import invariant from "invariant";
-import { GasTable } from "types";
+import { Address, GasTable } from "types";
 import { txKinds } from "types/txKind";
-import { namadaAsset, toDisplayAmount } from "utils";
 import { txKindToIndexer } from "./functions";
 
 export const fetchGasLimit = async (api: DefaultApi): Promise<GasTable> => {
@@ -25,24 +23,26 @@ export const fetchGasLimit = async (api: DefaultApi): Promise<GasTable> => {
   }, {} as GasTable);
 };
 
+const uatomMock = {
+  token: "tnam1p5nnjnasjtfwen2kzg78fumwfs0eycqpecuc2jwz",
+  minDenomAmount: "0.02",
+};
+
+const uosmoMock = {
+  token: "tnam1p5z8ruwyu7ha8urhq2l0dhpk2f5dv3ts7uyf2n75",
+  minDenomAmount: "3",
+};
+
 export const fetchMinimumGasPrice = async (
   api: DefaultApi,
-  nativeToken: string
-): Promise<BigNumber> => {
-  const gasTableResponse = await api.apiV1GasPriceTokenGet(nativeToken);
-  const nativeTokenCost = gasTableResponse.data.find(
-    ({ token }) => token === nativeToken
+  tokenAddress: Address
+): Promise<GasPriceTableInner | undefined> => {
+  const response = await api.apiV1GasPriceTokenGet(tokenAddress);
+  return (
+    response.data[0] ??
+    // TODO remove mock
+    { [uatomMock.token]: uatomMock, [uosmoMock.token]: uosmoMock }[tokenAddress]
   );
-  invariant(!!nativeTokenCost, "Error querying minimum gas price");
-  const asBigNumber = toDisplayAmount(
-    namadaAsset(),
-    BigNumber(nativeTokenCost.minDenomAmount)
-  );
-  invariant(
-    !asBigNumber.isNaN(),
-    "Error converting minimum gas price to BigNumber"
-  );
-  return asBigNumber;
 };
 
 export const fetchGasPriceForAllTokens = async (
@@ -51,7 +51,7 @@ export const fetchGasPriceForAllTokens = async (
   return [
     ...(await api.apiV1GasPriceGet()).data,
     // TODO remove mock
-    { token: "tnam1atom", minDenomAmount: "0.02" },
-    { token: "tnam1osmo", minDenomAmount: "3" },
+    uatomMock,
+    uosmoMock,
   ];
 };

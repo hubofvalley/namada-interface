@@ -1,8 +1,11 @@
 import { Modal } from "@namada/components";
-import { gasDollarMapAtom, gasTokenOptionsAtom } from "atoms/fees/atoms";
-import { preferableGasTokenAtom } from "atoms/settings/atoms";
+import {
+  gasDollarMapAtom,
+  gasTokenOptionsAtom,
+  storageGasTokenAtom,
+} from "atoms/fees/atoms";
 import BigNumber from "bignumber.js";
-import { useAtom, useAtomValue } from "jotai";
+import { useAtomValue, useSetAtom } from "jotai";
 import { IoClose } from "react-icons/io5";
 import { twMerge } from "tailwind-merge";
 import { GasConfig } from "types";
@@ -16,9 +19,7 @@ export const GasUsageModal = ({
   gasConfig: GasConfig;
   onClose: () => void;
 }): JSX.Element => {
-  const [preferableGasToken, setPreferableGasToken] = useAtom(
-    preferableGasTokenAtom
-  );
+  const setStorageGasToken = useSetAtom(storageGasTokenAtom);
   const gasTokenOptions = useAtomValue(gasTokenOptionsAtom);
   const gasDollarMap = useAtomValue(gasDollarMapAtom);
 
@@ -65,13 +66,13 @@ export const GasUsageModal = ({
                 "flex justify-between items-center",
                 "bg-rblack px-5 py-2 rounded-sm",
                 "hover:text-yellow hover:border-yellow transition-colors duration-300",
-                item.originalAddress === preferableGasToken ?
+                item.originalAddress === gasConfig.gasToken ?
                   "border border-white"
                 : "m-px"
               )}
               type="button"
               onClick={() => {
-                setPreferableGasToken(item.originalAddress);
+                setStorageGasToken(item.originalAddress);
                 onClose();
               }}
             >

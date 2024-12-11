@@ -36,6 +36,7 @@ export type AddressBalance = Record<Address, BigNumber>;
 export type GasConfig = {
   gasLimit: GasLimit;
   gasPrice: GasPrice;
+  gasToken: Address;
 };
 
 export type TxGas = Record<Address, GasLimit>;
@@ -73,7 +74,6 @@ export type SettingsStorage = {
   indexerUrl: string;
   maspIndexerUrl?: string;
   signArbitraryEnabled: boolean;
-  preferableGasToken?: Address;
   enableTestnets?: boolean;
 };
 
