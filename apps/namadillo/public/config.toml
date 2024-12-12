@@ -1,5 +1,5 @@
 # Uncomment the following lines to define your default indexer and rpc urls
-#indexer_url = ""
-#rpc_url = ""
-#masp_indexer_url = ""
+#indexer_url = "https://indexer-mainnet-namada.grandvalleys.com"
+#rpc_url = "https://lightnode-rpc-mainnet-namada.grandvalleys.com"
+masp_indexer_url = "https://masp-indexer-mainnet-namada.grandvalleys.com"
 #localnet_enabled = false
