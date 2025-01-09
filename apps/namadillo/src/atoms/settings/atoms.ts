@@ -1,12 +1,13 @@
 import { isUrlValid, sanitizeUrl } from "@namada/utils";
-import { indexerRpcUrlAtom } from "atoms/chain";
+import { chainParametersAtom, indexerRpcUrlAtom } from "atoms/chain";
 import { Getter, Setter, atom, getDefaultStore } from "jotai";
 import { atomWithMutation, atomWithQuery } from "jotai-tanstack-query";
 import { atomWithStorage } from "jotai/utils";
 import { SettingsStorage } from "types";
 import {
+  clearShieldedContext,
   fetchDefaultTomlConfig,
-  isIndexerAlive,
+  getIndexerHealth,
   isMaspIndexerAlive,
   isRpcAlive,
 } from "./services";
@@ -49,11 +50,9 @@ export const defaultServerConfigAtom = atomWithQuery((_get) => {
 
 export const defaultLocalStorageProps = {
   version: "0.1",
-  fiat: "usd",
   indexerUrl: "",
   signArbitraryEnabled: false,
-  testnetsEnabled: false,
-};
+} satisfies SettingsStorage;
 
 export const settingsAtom = atomWithStorage<SettingsStorage>(
   "namadillo:settings",
@@ -177,7 +176,10 @@ export const maspIndexerUrlAtom = atom((get) => {
 export const updateIndexerUrlAtom = atomWithMutation(() => {
   return {
     mutationKey: ["update-indexer-url"],
-    mutationFn: changeSettingsUrl("indexerUrl", isIndexerAlive),
+    mutationFn: changeSettingsUrl(
+      "indexerUrl",
+      async (url: string): Promise<boolean> => !!(await getIndexerHealth(url))
+    ),
   };
 });
 
@@ -202,9 +204,21 @@ export const indexerHeartbeatAtom = atomWithQuery((get) => {
     refetchOnWindowFocus: true,
     refetchInterval: 10_000,
     queryFn: async () => {
-      const valid = await isIndexerAlive(indexerUrl);
-      if (!valid) throw "Unable to verify indexer heartbeat";
-      return true;
+      const indexerInfo = await getIndexerHealth(indexerUrl);
+      if (!indexerInfo) throw "Unable to verify indexer heartbeat";
+      return indexerInfo;
     },
+  };
+});
+
+export const clearShieldedContextAtom = atomWithMutation((get) => {
+  const parameters = get(chainParametersAtom);
+  if (!parameters.data) {
+    throw new Error("Chain parameters not loaded");
+  }
+
+  return {
+    mutationKey: ["clear-shielded-context"],
+    mutationFn: () => clearShieldedContext(parameters.data.chainId),
   };
 });

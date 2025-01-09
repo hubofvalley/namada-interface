@@ -3613,12 +3613,12 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@namada/indexer-client@npm:1.0.2":
-  version: 1.0.2
-  resolution: "@namada/indexer-client@npm:1.0.2"
+"@namada/indexer-client@npm:1.1.4":
+  version: 1.1.4
+  resolution: "@namada/indexer-client@npm:1.1.4"
   dependencies:
     axios: "npm:^1.6.1"
-  checksum: 536807e94c788c97e844c5153ddcc031ef80665867aee741df87622f4a9e39d8668909f66c88688cb37993ec7bf605bf97710bcb6bfb2597b7feda2c40dc6633
+  checksum: 47a420251658c634bc3874a8e3cb27a91e9f2a5b6b7eb40ab4591595f2f7b866a60ed27fd5ac12fee1d869f5ec6e0827ffdab521860bf428ec64dbc8c47604df
   languageName: node
   linkType: hard
 
@@ -3659,7 +3659,7 @@ __metadata:
     "@cosmjs/encoding": "npm:^0.32.3"
     "@eslint/js": "npm:^9.9.1"
     "@keplr-wallet/types": "npm:^0.12.136"
-    "@namada/indexer-client": "npm:1.0.2"
+    "@namada/indexer-client": "npm:1.1.4"
     "@playwright/test": "npm:^1.24.1"
     "@release-it/keep-a-changelog": "npm:^5.0.0"
     "@svgr/webpack": "npm:^6.5.1"
@@ -3671,6 +3671,7 @@ __metadata:
     "@testing-library/jest-dom": "npm:^6.5.0"
     "@testing-library/react": "npm:^16.0.0"
     "@testing-library/user-event": "npm:^14.5.2"
+    "@types/animejs": "npm:^3.1.12"
     "@types/invariant": "npm:^2.2.37"
     "@types/jest": "npm:^29.5.12"
     "@types/lodash.debounce": "npm:^4.0.9"
@@ -3682,7 +3683,9 @@ __metadata:
     "@types/styled-components": "npm:^5.1.22"
     "@types/traverse": "npm:^0.6.36"
     "@vitejs/plugin-react": "npm:^4.3.1"
+    animejs: "npm:^3.2.2"
     autoprefixer: "npm:^10.4.16"
+    axios: "npm:^1.7.9"
     bignumber.js: "npm:^9.1.1"
     clsx: "npm:^2.1.1"
     comlink: "npm:^4.4.1"
@@ -4871,6 +4874,13 @@ __metadata:
   dependencies:
     "@types/node": "npm:*"
   checksum: 7b21efc78b98ed57063ac31588f871f11501c080cd1201ca3743cf02ee0aee74bdb5a634183bc0987dc8dc582b26316789fd203650319ccc89a66cf88311d64f
+  languageName: node
+  linkType: hard
+
+"@types/animejs@npm:^3.1.12":
+  version: 3.1.12
+  resolution: "@types/animejs@npm:3.1.12"
+  checksum: 21d10ed4fbaa99572e252b4d6e666b62a19089f63b13b0e9f8edf5fb0b708afc2b38c3055c52f6a4771bc71793d7a7aec83754c16d0e5606a0ad92b34778ba61
   languageName: node
   linkType: hard
 
@@ -6359,6 +6369,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"animejs@npm:^3.2.2":
+  version: 3.2.2
+  resolution: "animejs@npm:3.2.2"
+  checksum: f43dfcc0c743a2774e76fbfcb16a22350da7104f413d9d1b85c48128b0c078090642809deb631e21dfa0a40651111be39d9d7f694c9c1b70d8637ce8b6d63116
+  languageName: node
+  linkType: hard
+
 "ansi-align@npm:^3.0.1":
   version: 3.0.1
   resolution: "ansi-align@npm:3.0.1"
@@ -6855,6 +6872,17 @@ __metadata:
     form-data: "npm:^4.0.0"
     proxy-from-env: "npm:^1.1.0"
   checksum: 4499efc89e86b0b49ffddc018798de05fab26e3bf57913818266be73279a6418c3ce8f9e934c7d2d707ab8c095e837fc6c90608fb7715b94d357720b5f568af7
+  languageName: node
+  linkType: hard
+
+"axios@npm:^1.7.9":
+  version: 1.7.9
+  resolution: "axios@npm:1.7.9"
+  dependencies:
+    follow-redirects: "npm:^1.15.6"
+    form-data: "npm:^4.0.0"
+    proxy-from-env: "npm:^1.1.0"
+  checksum: b7a41e24b59fee5f0f26c1fc844b45b17442832eb3a0fb42dd4f1430eb4abc571fe168e67913e8a1d91c993232bd1d1ab03e20e4d1fee8c6147649b576fc1b0b
   languageName: node
   linkType: hard
 
@@ -15861,8 +15889,8 @@ __metadata:
 
 "namada-chain-registry@https://github.com/anoma/namada-chain-registry":
   version: 0.0.1
-  resolution: "namada-chain-registry@https://github.com/anoma/namada-chain-registry.git#commit=bbcc8535461ae2e939629740628ae455feca8225"
-  checksum: a4b2ab0789cb20dbb2299572fa3749e2c737eedd26823c1bfb9e4484dda701a1cb0a255d1f8944bd4bff1b6315f9cb494ec63482c3dcdd1c05d85deb59f9afeb
+  resolution: "namada-chain-registry@https://github.com/anoma/namada-chain-registry.git#commit=e732cd0b238a50022b8d9d14c8b38149a4612a34"
+  checksum: 91f246faf7d57d2db88653ca2244c9c51313afda91a3c367538bc3fc80ec653e453eb1fec124913e7d4d2a3c9e0e520a1377c2bd98cd8de33e83168564723c3d
   languageName: node
   linkType: hard
 

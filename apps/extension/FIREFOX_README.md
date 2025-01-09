@@ -7,81 +7,89 @@ exactly as they are described below.
 
 - [Build Instructions](#build-instructions)
 - [Notes](#notes)
-  - [Environment](#environment)
-  - [Setting up Node & NPM](#setting-up-node-and-npm)
+  - [Installing Docker](#installing-docker)
   - [Source Code](#source-code)
 
 ## Build instructions
 
-**NOTE**: You _must_ use `yarn` to install dependencies! This is due to the fact that this is configured as a monorepo
-using yarn workspaces. If you install via `npm install` or `npm i`, it will not resolve dependencies correctly.
+**NOTE** The add-on submission was built in the following environment:
 
-If you don't already have Node v22 LTS and NPM v10, please follow these [instructions](#setting-up-node-and-npm)
+- Ubuntu Desktop 24.04 LTS **ARM64** - Please ensure your environment matches this to produce an identical build!
+- Docker version 27.x
 
-These instructions should work for the default reviewer build environment.
+Follow these instructions to build with Docker:
 
-```bash
-sudo apt install protobuf-compiler build-essential curl pkg-config libssl-dev binaryen -y
-curl https://sh.rustup.rs -sSf | sh
-
-# Proceed with standard installation when prompted
-
-# Make sure to pull cargo into your current environment:
-. "$HOME/.cargo/env"
-
-# You must use yarn to install dependencies:
-npm install -g yarn
-export PUPPETEER_SKIP_DOWNLOAD=true
-
-# Run yarn to install dependencies
-yarn
-
-# Move into extension app directory
-cd apps/extension
-
-# Build wasm dependency:
-yarn wasm:build
-```
-
-Then, issue the final build command for the Firefox add-on:
+1. Verify that Docker 27+ is installed in your system before proceeding with the build:
 
 ```bash
-# Build the addon:
-yarn build:firefox
+docker --version
 ```
 
-The resulting extension is the ZIP file in `apps/extension/build/firefox`.
+2. From the **source code root**, build the Docker image:
+
+```bash
+docker build . --target firefox -t namada-keychain-firefox -f docker/extension/Dockerfile
+```
+
+3. Wait for the build to complete, and then copy the files from the container by executing the following command in the **source code root**:
+
+```bash
+docker run --rm -v ./apps/extension/build:/shared namada-keychain-firefox cp -r /app/apps/extension/build/. /shared/
+```
+
+4. The resulting extension is the ZIP file in `apps/extension/build/firefox`.
 
 [ [Table of Contents](#table-of-contents) ]
 
 ## Notes
 
-### Environment
+### Installing Docker
 
-This build was produced using the following environment:
+If Docker is not currently installed in your environment, please refer to the [instructions of the official Docker documentation](https://docs.docker.com/engine/install/ubuntu/).
 
-- Ubuntu 24.04 LTS (Desktop edition)
-- 10GB of system memory (RAM)
-- 6 cores of vCPU
-- Node 22 LTS and npm 10
-- 35GB of storage
+The steps we took to install Docker on Ubuntu Desktop 24.04 ARM64 are as follows:
 
-Please ensure that this matches your environment!
-
-[ [Table of Contents](#table-of-contents) ]
-
-### Setting up Node and NPM
+1. Remove any pre-existing Docker-related packages:
 
 ```bash
-wget -qO- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
-
-# Enable nvm in current shell
-export NVM_DIR="$([ -z "${XDG_CONFIG_HOME-}" ] && printf %s "${HOME}/.nvm" || printf %s "${XDG_CONFIG_HOME}/nvm")"
-[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-
-# Install v22 LTS
-nvm install v22.0.0
+for pkg in docker.io docker-doc docker-compose docker-compose-v2 podman-docker containerd runc; do sudo apt-get remove $pkg; done
 ```
+
+2. Setup Docker repository and install keyring
+
+```bash
+# Add Docker's official GPG key:
+sudo apt-get update
+sudo apt-get install ca-certificates curl
+sudo install -m 0755 -d /etc/apt/keyrings
+sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+sudo chmod a+r /etc/apt/keyrings/docker.asc
+
+# Add the repository to Apt sources:
+echo \
+  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu \
+  $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
+  sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+sudo apt-get update
+```
+
+3. Install Docker packages:
+
+```bash
+sudo apt-get install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+```
+
+4. Post-install - Add `docker` group to user:
+
+```bash
+# If docker group doesn't currently exist:
+sudo groupadd docker
+
+# Add current user to docker group:
+sudo usermod -aG docker $USER
+```
+
+5. Log out, then log back in for group to take effect! This is to ensure that you don't need to run our Docker commands as root via `sudo`.
 
 [ [Table of Contents](#table-of-contents) ]
 

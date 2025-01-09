@@ -1,13 +1,16 @@
 import { Chain } from "@chain-registry/types";
 import { OfflineSigner } from "@cosmjs/launchpad";
-import { coins } from "@cosmjs/proto-signing";
 import {
   DeliverTxResponse,
   SigningStargateClient,
   StargateClient,
+  StdFee,
   assertIsDeliverTxSuccess,
+  calculateFee,
 } from "@cosmjs/stargate";
-import { TransactionFee } from "App/Transfer/TransferModule";
+import { TxRaw } from "cosmjs-types/cosmos/tx/v1beta1/tx";
+
+import { getIndexerApi } from "atoms/api";
 import { queryForAck, queryForIbcTimeout } from "atoms/transactions";
 import BigNumber from "bignumber.js";
 import { getDefaultStore } from "jotai";
@@ -16,13 +19,15 @@ import toml from "toml";
 import {
   AddressWithAsset,
   Coin,
+  GasConfig,
   IbcTransferTransactionData,
   LocalnetToml,
   TransferStep,
 } from "types";
 import { toBaseAmount } from "utils";
+import { getKeplrWallet } from "utils/ibc";
 import { getSdkInstance } from "utils/sdk";
-import { workingRpcsAtom } from "./atoms";
+import { rpcByChainAtom } from "./atoms";
 import { getRpcByIndex } from "./functions";
 
 type CommonParams = {
@@ -33,7 +38,7 @@ type CommonParams = {
   amount: BigNumber;
   asset: AddressWithAsset;
   sourceChannelId: string;
-  transactionFee: TransactionFee;
+  gasConfig: GasConfig;
 };
 
 type TransparentParams = CommonParams & { isShielded: false };
@@ -44,7 +49,7 @@ type ShieldedParams = CommonParams & {
 
 export type IbcTransferParams = TransparentParams | ShieldedParams;
 
-const getShieldedArgs = async (
+export const getShieldedArgs = async (
   target: string,
   token: string,
   amount: BigNumber,
@@ -80,94 +85,90 @@ export const queryAssetBalances = async (
   }));
 };
 
-export const submitIbcTransfer = async (
+export const createStargateClient = async (
   rpc: string,
-  transferParams: IbcTransferParams
-): Promise<DeliverTxResponse> => {
-  const {
-    signer,
-    sourceAddress,
-    destinationAddress,
-    amount: displayAmount,
-    asset,
-    sourceChannelId,
-    isShielded,
-    transactionFee,
-  } = transferParams;
-
-  const client = await SigningStargateClient.connectWithSigner(rpc, signer, {
+  chain: Chain
+): Promise<SigningStargateClient> => {
+  const keplr = getKeplrWallet();
+  const signer = keplr.getOfflineSigner(chain.chain_id);
+  return await SigningStargateClient.connectWithSigner(rpc, signer, {
     broadcastPollIntervalMs: 300,
     broadcastTimeoutMs: 8_000,
   });
+};
+
+export const getSignedMessage = async (
+  client: SigningStargateClient,
+  transferParams: IbcTransferParams,
+  maspCompatibleMemo: string = ""
+): Promise<TxRaw> => {
+  const {
+    sourceAddress,
+    amount: displayAmount,
+    asset,
+    sourceChannelId,
+    gasConfig,
+  } = transferParams;
 
   // cosmjs expects amounts to be represented in the base denom, so convert
   const baseAmount = toBaseAmount(asset.asset, displayAmount);
-  const baseFee = toBaseAmount(transactionFee.asset, transactionFee.amount);
 
-  const fee = {
-    amount: coins(baseFee.toString(), transactionFee.originalAddress),
-    gas: "222000", // TODO: what should this be?
-  };
-
-  const token = asset.originalAddress;
-  const { receiver, memo }: { receiver: string; memo?: string } =
-    isShielded ?
-      await getShieldedArgs(
-        destinationAddress,
-        token,
-        baseAmount,
-        transferParams.destinationChannelId
-      )
-    : { receiver: destinationAddress };
+  const fee: StdFee = calculateFee(
+    gasConfig.gasLimit.toNumber(),
+    `${gasConfig.gasPrice.toString()}${gasConfig.gasToken}`
+  );
 
   const transferMsg = createIbcTransferMessage(
     sourceChannelId,
     sourceAddress,
-    receiver,
+    transferParams.destinationAddress,
     baseAmount,
     asset.originalAddress,
-    memo
+    maspCompatibleMemo
   );
 
-  const response = await client.signAndBroadcast(
-    sourceAddress,
-    [transferMsg],
-    fee
-  );
+  return await client.sign(sourceAddress, [transferMsg], fee, "");
+};
 
+export const broadcastIbcTransaction = async (
+  client: SigningStargateClient,
+  tx: TxRaw
+): Promise<DeliverTxResponse> => {
+  const txBytes = TxRaw.encode(tx).finish();
+  const response = await client.broadcastTx(txBytes);
   assertIsDeliverTxSuccess(response);
   return response;
 };
 
 export const queryAndStoreRpc = async <T>(
   chain: Chain,
-  queryFn: QueryFn<T>,
-  rpcIndex = 0
+  queryFn: QueryFn<T>
 ): Promise<T> => {
   const { get, set } = getDefaultStore();
-  const workingRpcs = get(workingRpcsAtom);
-  const rpcAddress =
-    chain.chain_id in workingRpcs ?
-      workingRpcs[chain.chain_id]
-    : getRpcByIndex(chain, rpcIndex);
+  const lastRpc = get(rpcByChainAtom) || {};
+  const rpc =
+    chain.chain_id in lastRpc ?
+      lastRpc[chain.chain_id]
+    : getRpcByIndex(chain, 0);
 
   try {
-    const output = await queryFn(rpcAddress);
-    set(workingRpcsAtom, {
-      ...workingRpcs,
-      [chain.chain_id]: rpcAddress,
+    const output = await queryFn(rpc.address);
+    set(rpcByChainAtom, {
+      ...lastRpc,
+      [chain.chain_id]: { ...rpc },
     });
     return output;
   } catch (err) {
-    if (chain.chain_id in workingRpcs) {
-      delete workingRpcs[chain.chain_id];
-      set(workingRpcsAtom, { ...workingRpcs });
-    }
+    // On error, saves the next available rpc
+    set(rpcByChainAtom, {
+      ...lastRpc,
+      [chain.chain_id]: getRpcByIndex(chain, rpc.index + 1),
+    });
     throw err;
   }
 };
 
-export const updateIbcTransactionStatus = async (
+export const updateIbcTransferStatus = async (
   rpc: string,
   tx: IbcTransferTransactionData,
   changeTransaction: (
@@ -183,6 +184,15 @@ export const updateIbcTransactionStatus = async (
       currentStep: TransferStep.Complete,
       resultTxHash: successQueries[0].hash,
     });
+
+    window.dispatchEvent(
+      new CustomEvent(`IbcTransfer.Success`, {
+        detail: {
+          ...(tx as IbcTransferTransactionData),
+        },
+      })
+    );
+
     return;
   }
 
@@ -193,6 +203,52 @@ export const updateIbcTransactionStatus = async (
       errorMessage: "Transaction timed out",
       resultTxHash: timeoutQuery[0].hash,
     });
+
+    window.dispatchEvent(
+      new CustomEvent(`IbcTransfer.Error`, {
+        detail: { ...(tx as IbcTransferTransactionData) },
+      })
+    );
+  }
+};
+
+export const updateIbcWithdrawalStatus = async (
+  tx: IbcTransferTransactionData,
+  changeTransaction: (
+    hash: string,
+    update: Partial<IbcTransferTransactionData>
+  ) => void
+): Promise<void> => {
+  const api = getIndexerApi();
+  if (!tx.hash) throw "Transaction hash not defined";
+  const response = await api.apiV1IbcTxIdStatusGet(tx.hash);
+
+  //@ts-expect-error Indexer not providing correct type
+  const { status } = response.data;
+
+  if (status === "success") {
+    changeTransaction(tx.hash, {
+      status: "success",
+      currentStep: TransferStep.Complete,
+    });
+    window.dispatchEvent(
+      new CustomEvent(`IbcTransfer.Success`, {
+        detail: { ...(tx as IbcTransferTransactionData) },
+      })
+    );
+    return;
+  }
+
+  if (status === "fail" || status === "timeout") {
+    changeTransaction(tx.hash, {
+      status: "error",
+      errorMessage: "IBC Withdraw failed",
+    });
+    window.dispatchEvent(
+      new CustomEvent(`IbcTransfer.Error`, {
+        detail: { ...(tx as IbcTransferTransactionData) },
+      })
+    );
   }
 };
 

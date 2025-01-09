@@ -1,6 +1,5 @@
 import {
   BondProps,
-  IbcTransferProps,
   RedelegateProps,
   ShieldedTransferProps,
   ShieldingTransferProps,
@@ -11,7 +10,7 @@ import {
   VoteProposalProps,
   WithdrawProps,
 } from "@namada/types";
-import { ClaimRewardsProps } from "types";
+import { ClaimRewardsProps, IbcTransferTransactionData } from "types";
 import { TxKind } from "types/txKind";
 
 export type TransactionEventsClasses = Partial<TxKind>;
@@ -60,10 +59,16 @@ declare global {
     "VoteProposal.Success": EventData<VoteProposalProps>;
     "VoteProposal.Error": EventData<VoteProposalProps>;
     "TransparentTransfer.Success": EventData<TransparentTransferProps>;
+    "TransparentTransfer.Error": EventData<TransparentTransferProps>;
     "ShieldedTransfer.Success": EventData<ShieldedTransferProps>;
+    "ShieldedTransfer.Error": EventData<ShieldedTransferProps>;
     "ShieldingTransfer.Success": EventData<ShieldingTransferProps>;
+    "ShieldingTransfer.Error": EventData<ShieldingTransferProps>;
     "UnshieldingTransfer.Success": EventData<UnshieldingTransferProps>;
-    "IbcTransfer.Success": EventData<IbcTransferProps>;
-    "IbcTransfer.Error": EventData<IbcTransferProps>;
+    "UnshieldingTransfer.Error": EventData<UnshieldingTransferProps>;
+    "IbcTransfer.Success": CustomEvent<IbcTransferTransactionData>;
+    "IbcTransfer.Error": CustomEvent<IbcTransferTransactionData>;
+    "IbcWithdraw.Success": CustomEvent<IbcTransferTransactionData>;
+    "IbcWithdraw.Error": CustomEvent<IbcTransferTransactionData>;
   }
 }

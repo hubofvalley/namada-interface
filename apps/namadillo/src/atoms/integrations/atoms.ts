@@ -1,23 +1,25 @@
 import { AssetList, Chain } from "@chain-registry/types";
-import { ExtensionKey, IbcTransferProps } from "@namada/types";
+import { DeliverTxResponse, SigningStargateClient } from "@cosmjs/stargate";
+import {
+  ExtensionKey,
+  IbcTransferMsgValue,
+  IbcTransferProps,
+} from "@namada/types";
 import { defaultAccountAtom } from "atoms/accounts";
 import { chainAtom, chainParametersAtom } from "atoms/chain";
 import { defaultServerConfigAtom, settingsAtom } from "atoms/settings";
 import { queryDependentFn } from "atoms/utils";
-import BigNumber from "bignumber.js";
+import { TxRaw } from "cosmjs-types/cosmos/tx/v1beta1/tx";
 import { atom } from "jotai";
 import { atomWithMutation, atomWithQuery } from "jotai-tanstack-query";
 import { atomFamily, atomWithStorage } from "jotai/utils";
 import { TransactionPair } from "lib/query";
-import { createTransferDataFromIbc } from "lib/transactions";
 import {
-  AddressWithAsset,
   AddressWithAssetAndAmountMap,
+  BuildTxAtomParams,
   ChainId,
   ChainRegistryEntry,
-  GasConfig,
-  TransferStep,
-  TransferTransactionData,
+  RpcStorage,
 } from "types";
 import {
   addLocalnetToRegistry,
@@ -29,16 +31,15 @@ import {
   mapCoinsToAssets,
 } from "./functions";
 import {
+  broadcastIbcTransaction,
   fetchLocalnetTomlConfig,
-  IbcTransferParams,
   queryAndStoreRpc,
   queryAssetBalances,
-  submitIbcTransfer,
 } from "./services";
 
 type IBCTransferAtomParams = {
-  transferParams: IbcTransferParams;
-  chain: Chain;
+  client: SigningStargateClient;
+  tx: TxRaw;
 };
 
 type AssetBalanceAtomParams = {
@@ -62,33 +63,18 @@ export const selectedIBCChainAtom = atomWithStorage<string | undefined>(
   undefined
 );
 
-export const workingRpcsAtom = atomWithStorage<Record<string, string>>(
-  "namadillo:rpcs",
-  {}
-);
+export const rpcByChainAtom = atomWithStorage<
+  Record<string, RpcStorage> | undefined
+>("namadillo:rpc:active", undefined);
 
-export const ibcTransferAtom = atomWithMutation(() => {
+export const broadcastIbcTransactionAtom = atomWithMutation(() => {
   return {
     mutationKey: ["ibc-transfer"],
     mutationFn: async ({
-      transferParams,
-      chain,
-    }: IBCTransferAtomParams): Promise<TransferTransactionData> => {
-      return await queryAndStoreRpc(chain, async (rpc: string) => {
-        const txResponse = await submitIbcTransfer(rpc, transferParams);
-        return createTransferDataFromIbc(
-          txResponse,
-          rpc,
-          transferParams.asset.asset,
-          transferParams.chainId,
-          transferParams.isShielded ?
-            { type: "IbcToShielded", currentStep: TransferStep.ZkProof }
-          : {
-              type: "IbcToTransparent",
-              currentStep: TransferStep.IbcToTransparent,
-            }
-        );
-      });
+      client,
+      tx,
+    }: IBCTransferAtomParams): Promise<DeliverTxResponse> => {
+      return await broadcastIbcTransaction(client, tx);
     },
   };
 });
@@ -161,40 +147,41 @@ export const ibcChannelsFamily = atomFamily((cosmosChainName?: string) =>
   })
 );
 
-type CreateIbcTxArgs = {
-  destinationAddress: string;
-  token: AddressWithAsset;
-  amount: BigNumber;
-  portId: string;
-  channelId: string;
-  memo?: string;
-  gasConfig: GasConfig;
-};
-
 export const createIbcTxAtom = atomWithMutation((get) => {
   const account = get(defaultAccountAtom);
   const chain = get(chainAtom);
-
   return {
     enabled: account.isSuccess && chain.isSuccess,
     mutationKey: ["create-ibc-tx"],
     mutationFn: async ({
-      destinationAddress,
-      token,
-      amount,
-      portId,
-      channelId,
+      params,
       memo,
+      account,
       gasConfig,
-    }: CreateIbcTxArgs): Promise<TransactionPair<IbcTransferProps>> => {
-      if (typeof account.data === "undefined") {
+    }: BuildTxAtomParams<IbcTransferMsgValue>): Promise<
+      TransactionPair<IbcTransferProps> | undefined
+    > => {
+      if (typeof account === "undefined") {
         throw new Error("no account");
       }
-      return createIbcTx(
-        account.data,
+
+      if (params.length === 0) {
+        throw new Error("Invalid params");
+      }
+
+      const {
+        receiver: destinationAddress,
+        token,
+        amountInBaseDenom,
+        portId,
+        channelId,
+      } = params[0];
+
+      return await createIbcTx(
+        account,
         destinationAddress,
         token,
-        amount,
+        amountInBaseDenom,
         portId,
         channelId,
         gasConfig,

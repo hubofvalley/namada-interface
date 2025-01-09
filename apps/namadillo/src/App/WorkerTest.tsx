@@ -53,7 +53,8 @@ export function WorkerTest(): JSX.Element {
     await shieldedSyncWorker.sync({
       type: "sync",
       payload: {
-        vks: [vk],
+        vks: [{ key: vk, birthday: 0 }],
+        chainId: chain!.id,
       },
     });
 
@@ -93,8 +94,9 @@ export function WorkerTest(): JSX.Element {
         gasConfig: {
           gasLimit: BigNumber(50000),
           gasPrice: BigNumber(0),
+          gasToken: "tnam1",
         },
-        shieldingProps: [shieldingMsgValue],
+        props: [shieldingMsgValue],
         indexerUrl,
         chain: chain!,
       },
@@ -107,7 +109,7 @@ export function WorkerTest(): JSX.Element {
     await shieldWorker.broadcast({
       type: "broadcast",
       payload: {
-        encodedTx,
+        encodedTxData: encodedTx,
         signedTxs,
       },
     });
@@ -142,10 +144,6 @@ export function WorkerTest(): JSX.Element {
       ],
     });
 
-    const vks = accounts
-      ?.filter((acc) => acc.type === "shielded-keys")
-      .map((a) => a.viewingKey!);
-
     const disposableSigner = (await refetch()).data;
 
     const msg: Unshield = {
@@ -158,11 +156,10 @@ export function WorkerTest(): JSX.Element {
         gasConfig: {
           gasLimit: BigNumber(100000),
           gasPrice: BigNumber(0),
+          gasToken: "tnam1",
         },
-        unshieldingProps: [shieldingMsgValue],
+        props: [shieldingMsgValue],
         chain: chain!,
-        vks: vks!,
-        indexerUrl,
       },
     };
 
@@ -172,7 +169,7 @@ export function WorkerTest(): JSX.Element {
     await shieldWorker.broadcast({
       type: "broadcast",
       payload: {
-        encodedTx,
+        encodedTxData: encodedTx,
         signedTxs,
       },
     });
@@ -207,10 +204,6 @@ export function WorkerTest(): JSX.Element {
       ],
     });
 
-    const vks = accounts
-      ?.filter((acc) => acc.type === "shielded-keys")
-      .map((a) => a.viewingKey!);
-
     const disposableSigner = (await refetch()).data;
 
     const msg: ShieldedTransfer = {
@@ -223,10 +216,10 @@ export function WorkerTest(): JSX.Element {
         gasConfig: {
           gasLimit: BigNumber(50000),
           gasPrice: BigNumber(0),
+          gasToken: "tnam1",
         },
-        shieldingProps: [shieldingMsgValue],
+        props: [shieldingMsgValue],
         chain: chain!,
-        vks: vks!,
       },
     };
 
@@ -236,7 +229,7 @@ export function WorkerTest(): JSX.Element {
     await shieldWorker.broadcast({
       type: "broadcast",
       payload: {
-        encodedTx,
+        encodedTxData: encodedTx,
         signedTxs,
       },
     });

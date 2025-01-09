@@ -31,11 +31,16 @@ export type GasLimit = BigNumber;
 
 export type GasPrice = BigNumber;
 
+// For Namada chain, it should be the address. For Ibc, it should be the base denom
+export type GasToken = Address | string;
+
 export type AddressBalance = Record<Address, BigNumber>;
 
 export type GasConfig = {
   gasLimit: GasLimit;
   gasPrice: GasPrice;
+  gasToken: GasToken;
+  asset?: Asset;
 };
 
 export type TxGas = Record<Address, GasLimit>;
@@ -74,6 +79,11 @@ export type SettingsStorage = {
   maspIndexerUrl?: string;
   signArbitraryEnabled: boolean;
   enableTestnets?: boolean;
+};
+
+export type RpcStorage = {
+  address: string;
+  index: number;
 };
 
 export type Validator = Unique & {
@@ -218,6 +228,7 @@ export enum TransferStep {
   IbcWithdraw = "ibc-withdraw",
   IbcToShielded = "ibc-to-shielded",
   IbcToTransparent = "ibc-to-transparent",
+  WaitingConfirmation = "waiting-confirmation",
   Complete = "complete",
 }
 
@@ -251,17 +262,20 @@ export const ibcTransferStages = {
   TransparentToIbc: [
     TransferStep.Sign,
     TransferStep.IbcWithdraw,
+    TransferStep.WaitingConfirmation,
     TransferStep.Complete,
   ] as const,
   IbcToShielded: [
     TransferStep.Sign,
     TransferStep.ZkProof,
     TransferStep.IbcToShielded,
+    TransferStep.WaitingConfirmation,
     TransferStep.Complete,
   ] as const,
   IbcToTransparent: [
     TransferStep.Sign,
     TransferStep.IbcToTransparent,
+    TransferStep.WaitingConfirmation,
     TransferStep.Complete,
   ] as const,
 };
@@ -358,4 +372,10 @@ export type LocalnetToml = {
   token_address: string;
   chain_1_channel: string;
   chain_2_channel: string;
+};
+
+// TODO: remove this after indexer swagger gets fixed
+export type TempIndexerHealthType = {
+  version: string;
+  commit: string;
 };

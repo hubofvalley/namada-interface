@@ -28,7 +28,6 @@ use namada_sdk::rpc::{
     query_masp_epoch, query_native_token, query_proposal_by_id, query_proposal_votes,
     query_storage_value,
 };
-use namada_sdk::state::BlockHeight;
 use namada_sdk::state::Key;
 use namada_sdk::token;
 use namada_sdk::tx::{
@@ -37,7 +36,6 @@ use namada_sdk::tx::{
 };
 use namada_sdk::uint::I256;
 use namada_sdk::wallet::DatedKeypair;
-use namada_sdk::ExtendedSpendingKey;
 use namada_sdk::ExtendedViewingKey;
 use std::collections::BTreeMap;
 use std::str::FromStr;
@@ -50,6 +48,7 @@ use crate::sdk::{
     io::WebIo,
     masp::{sync, JSShieldedUtils},
 };
+use crate::types::masp::DatedViewingKey;
 use crate::types::query::{ProposalInfo, WasmHash};
 use crate::utils::{set_panic_hook, to_js_result};
 
@@ -106,7 +105,7 @@ impl Query {
             // TODO: for now we just concatenate the v1 api path
             let url = reqwest::Url::parse(&format!("{}/api/v1", url)).unwrap();
 
-            MaspClient::Indexer(IndexerMaspClient::new(client, url, true, 10))
+            MaspClient::Indexer(IndexerMaspClient::new(client, url, true, 100))
         } else {
             MaspClient::Ledger(LedgerMaspClient::new(
                 client.clone(),
@@ -327,49 +326,19 @@ impl Query {
 
     pub async fn shielded_sync(
         &self,
-        vks: Box<[JsValue]>,
-        sks: Box<[JsValue]>,
+        vks: Box<[DatedViewingKey]>,
+        chain_id: String,
     ) -> Result<(), JsError> {
-        let vks: Vec<ViewingKey> = vks
-            .iter()
-            .filter_map(|owner| owner.as_string())
-            .map(|o| {
-                ExtendedFullViewingKey::from(ExtendedViewingKey::from_str(&o).unwrap())
-                    .fvk
-                    .vk
-            })
-            .collect();
-
-        let sks = sks
-            .iter()
-            .filter_map(|owner| owner.as_string())
-            .map(|sk| ExtendedSpendingKey::from_str(&sk).unwrap())
-            .collect::<Vec<_>>();
-
-        let dated_keypairs = vks
-            .into_iter()
-            .map(|vk| DatedKeypair {
-                key: vk,
-                birthday: BlockHeight::from(0),
-            })
-            .collect::<Vec<_>>();
-
-        let dated_sks = sks
-            .into_iter()
-            .map(|sk| DatedKeypair {
-                key: sk,
-                birthday: BlockHeight::from(0),
-            })
-            .collect::<Vec<_>>();
+        let dated_keypairs = vks.iter().map(|vk| vk.0).collect::<Vec<_>>();
 
         match &self.masp_client {
             MaspClient::Indexer(client) => {
-                web_sys::console::log_1(&"Syncing using IndexerMaspClient".into());
-                self.sync(client.clone(), dated_keypairs, dated_sks).await?
+                web_sys::console::info_1(&"Syncing using IndexerMaspClient".into());
+                self.sync(client.clone(), dated_keypairs, chain_id).await?
             }
             MaspClient::Ledger(client) => {
-                web_sys::console::log_1(&"Syncing using LedgerMaspClient".into());
-                self.sync(client.clone(), dated_keypairs, dated_sks).await?
+                web_sys::console::info_1(&"Syncing using LedgerMaspClient".into());
+                self.sync(client.clone(), dated_keypairs, chain_id).await?
             }
         };
 
@@ -380,7 +349,7 @@ impl Query {
         &self,
         client: C,
         dated_keypairs: Vec<DatedKeypair<ViewingKey>>,
-        dated_sks: Vec<DatedKeypair<ExtendedSpendingKey>>,
+        chain_id: String,
     ) -> Result<(), JsError>
     where
         C: NamadaMaspClient + Send + Sync + Unpin + 'static,
@@ -410,15 +379,10 @@ impl Query {
         let env = sync::TaskEnvWeb::new();
 
         let mut shielded_context: ShieldedContext<JSShieldedUtils> = ShieldedContext::default();
+        shielded_context.utils.chain_id = chain_id.clone();
 
         shielded_context
-            .sync(
-                env,
-                config,
-                None,
-                dated_sks.as_slice(),
-                dated_keypairs.as_slice(),
-            )
+            .sync(env, config, None, &[], dated_keypairs.as_slice())
             .await
             .map_err(|e| JsError::new(&format!("{:?}", e)))?;
 
@@ -434,11 +398,13 @@ impl Query {
         &self,
         xvk: ExtendedViewingKey,
         tokens: Vec<Address>,
+        chain_id: String,
     ) -> Result<Vec<(Address, token::Amount)>, JsError> {
         let viewing_key = ExtendedFullViewingKey::from(xvk).fvk.vk;
 
         // We are recreating shielded context to avoid multiple mutable borrows
         let mut shielded: ShieldedContext<JSShieldedUtils> = ShieldedContext::default();
+        shielded.utils.chain_id = chain_id.clone();
         shielded.load().await?;
         shielded
             .precompute_asset_types(&self.client, tokens.iter().collect())
@@ -469,6 +435,8 @@ impl Query {
         &self,
         owner: String,
         tokens: Box<[JsValue]>,
+        // We need to pass chain id to load correct context
+        chain_id: String,
     ) -> Result<JsValue, JsError> {
         let tokens: Vec<Address> = tokens
             .iter()
@@ -481,7 +449,7 @@ impl Query {
         let result = match Address::from_str(&owner) {
             Ok(addr) => self.query_transparent_balance(addr, tokens).await,
             Err(e1) => match ExtendedViewingKey::from_str(&owner) {
-                Ok(xvk) => self.query_shielded_balance(xvk, tokens).await,
+                Ok(xvk) => self.query_shielded_balance(xvk, tokens, chain_id).await,
                 Err(e2) => return Err(JsError::new(&format!("{} {}", e1, e2))),
             },
         }?;
