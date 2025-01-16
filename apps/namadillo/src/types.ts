@@ -62,6 +62,8 @@ export type SettingsTomlOptions = {
   masp_indexer_url?: string;
   rpc_url?: string;
   localnet_enabled?: boolean;
+  github_chain_registry_base_url?: string;
+  github_namada_interface_url?: string;
 };
 
 export type ChainParameters = {
@@ -235,22 +237,25 @@ export enum TransferStep {
 // Defines the steps in the Namada <> Namada transfer progress for tracking transaction stages.
 export const namadaTransferStages = {
   TransparentToShielded: [
-    TransferStep.Sign,
     TransferStep.ZkProof,
+    TransferStep.Sign,
     TransferStep.TransparentToShielded,
     TransferStep.Complete,
   ] as const,
   ShieldedToTransparent: [
+    TransferStep.ZkProof,
     TransferStep.Sign,
     TransferStep.ShieldedToTransparent,
     TransferStep.Complete,
   ] as const,
   ShieldedToShielded: [
+    TransferStep.ZkProof,
     TransferStep.Sign,
     TransferStep.ShieldedToShielded,
     TransferStep.Complete,
   ] as const,
   TransparentToTransparent: [
+    TransferStep.ZkProof,
     TransferStep.Sign,
     TransferStep.TransparentToTransparent,
     TransferStep.Complete,
