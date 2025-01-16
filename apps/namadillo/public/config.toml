@@ -3,3 +3,6 @@
 #rpc_url = "https://lightnode-rpc-mainnet-namada.grandvalleys.com"
 masp_indexer_url = "https://masp-indexer-mainnet-namada.grandvalleys.com"
 #localnet_enabled = false
+
+github_chain_registry_base_url = "https://raw.githubusercontent.com/anoma/namada-chain-registry/refs/heads/main"
+github_namada_interface_url = "https://raw.githubusercontent.com/anoma/namada-interface/refs/heads/main"
