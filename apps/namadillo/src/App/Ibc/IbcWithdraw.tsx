@@ -9,7 +9,6 @@ import {
 import { defaultAccountAtom } from "atoms/accounts";
 import { namadaTransparentAssetsAtom } from "atoms/balance";
 import { chainAtom } from "atoms/chain";
-import { defaultGasConfigFamily } from "atoms/fees";
 import {
   availableChainsAtom,
   chainRegistryAtom,
@@ -34,7 +33,7 @@ import {
   TransferStep,
   TransferTransactionData,
 } from "types";
-import { toBaseAmount } from "utils";
+import { toBaseAmount, toDisplayAmount } from "utils";
 import { IbcTopHeader } from "./IbcTopHeader";
 
 const defaultChainId = "cosmoshub-4";
@@ -61,8 +60,9 @@ export const IbcWithdraw: React.FC = () => {
     selectedAssetAddress
   );
 
-  const { data: gasConfig } = useAtomValue(
-    defaultGasConfigFamily(["IbcTransfer"])
+  const selectedAsset = mapUndefined(
+    (address) => availableAssets?.[address],
+    selectedAssetAddress
   );
 
   const {
@@ -90,7 +90,12 @@ export const IbcWithdraw: React.FC = () => {
     setSourceChannel(ibcChannels?.namadaChannel || "");
   }, [ibcChannels]);
 
-  const { execute: performWithdraw, isPending } = useTransaction({
+  const {
+    execute: performWithdraw,
+    feeProps,
+    isPending,
+    isSuccess,
+  } = useTransaction({
     eventType: "IbcTransfer",
     createTxAtom: createIbcTxAtom,
     params: [],
@@ -102,6 +107,29 @@ export const IbcWithdraw: React.FC = () => {
       title: "IBC withdrawal failed",
       description: "",
     }),
+    onSuccess: (tx) => {
+      const props = tx.encodedTxData.meta?.props[0];
+      invariant(props, "EncodedTxData not provided");
+      invariant(selectedAsset, "Selected asset is not defined");
+      invariant(chainId, "Chain ID is not provided");
+
+      const displayAmount = toDisplayAmount(
+        selectedAsset.asset,
+        props.amountInBaseDenom
+      );
+
+      const transferTransaction = storeTransferTransaction(
+        tx,
+        displayAmount,
+        chainId,
+        selectedAsset.asset
+      );
+
+      redirectToTimeline(transferTransaction);
+    },
+    onError: (err) => {
+      setGeneralErrorMessage(String(err));
+    },
   });
 
   const storeTransferTransaction = (
@@ -147,49 +175,25 @@ export const IbcWithdraw: React.FC = () => {
     destinationAddress,
     memo,
   }: OnSubmitTransferParams): Promise<void> => {
-    try {
-      const selectedAsset = mapUndefined(
-        (address) => availableAssets?.[address],
-        selectedAssetAddress
-      );
+    invariant(selectedAsset, "No asset is selected");
+    invariant(sourceChannel, "No channel ID is set");
+    invariant(chainId, "No chain is selected");
+    invariant(keplrAddress, "No address is selected");
 
-      invariant(selectedAsset, "No asset is selected");
-      invariant(sourceChannel, "No channel ID is set");
-      invariant(chainId, "No chain is selected");
-      invariant(gasConfig, "No gas config");
-      invariant(keplrAddress, "No address is selected");
-
-      const amountInBaseDenom = toBaseAmount(
-        selectedAsset.asset,
-        displayAmount
-      );
-
-      const tx = await performWithdraw({
-        params: [
-          {
-            amountInBaseDenom,
-            channelId: sourceChannel.trim(),
-            portId: "transfer",
-            token: selectedAsset.originalAddress,
-            source: keplrAddress,
-            receiver: destinationAddress,
-            memo,
-          },
-        ],
-      });
-
-      if (tx) {
-        const transferTransaction = storeTransferTransaction(
-          tx,
-          displayAmount,
-          chainId,
-          selectedAsset.asset
-        );
-        redirectToTimeline(transferTransaction);
-      }
-    } catch (err) {
-      setGeneralErrorMessage(String(err));
-    }
+    const amountInBaseDenom = toBaseAmount(selectedAsset.asset, displayAmount);
+    await performWithdraw({
+      params: [
+        {
+          amountInBaseDenom,
+          channelId: sourceChannel.trim(),
+          portId: "transfer",
+          token: selectedAsset.originalAddress,
+          source: keplrAddress,
+          receiver: destinationAddress,
+          memo,
+        },
+      ],
+    });
   };
 
   const requiresIbcChannels = !isLoadingIbcChannels && unknownIbcChannels;
@@ -234,7 +238,10 @@ export const IbcWithdraw: React.FC = () => {
           onChangeChain,
           isShielded: false,
         }}
-        isSubmitting={isPending}
+        isSubmitting={
+          isPending ||
+          isSuccess /* should redirect to timeline to wait for confirmation */
+        }
         isIbcTransfer={true}
         requiresIbcChannels={requiresIbcChannels}
         ibcOptions={{
@@ -242,7 +249,7 @@ export const IbcWithdraw: React.FC = () => {
           onChangeSourceChannel: setSourceChannel,
         }}
         onSubmitTransfer={submitIbcTransfer}
-        gasConfig={gasConfig}
+        feeProps={feeProps}
         errorMessage={generalErrorMessage}
       />
     </div>

@@ -24,7 +24,7 @@ import {
   ShieldingTransferProps,
   SignatureMsgValue,
   SupportedTxProps,
-  TransferMsgValue,
+  TransferDetailsMsgValue,
   TransparentTransferMsgValue,
   TransparentTransferProps,
   TxDetails,
@@ -454,7 +454,7 @@ export class Tx {
         case TxType.ClaimRewards:
           return deserialize(data, ClaimRewardsMsgValue);
         case TxType.Transfer:
-          return deserialize(data, TransferMsgValue);
+          return deserialize(data, TransferDetailsMsgValue);
         case TxType.RevealPK:
           return deserialize(data, RevealPkMsgValue);
         case TxType.IBCTransfer:
@@ -466,12 +466,16 @@ export class Tx {
 
     return {
       ...wrapperTx,
+      // Wrapper fee payer is always defined at this point
+      wrapperFeePayer: wrapperTx.wrapperFeePayer!,
       commitments: commitments.map(
-        ({ txType, hash, txCodeId, data, memo }) => ({
+        ({ txType, hash, txCodeId, data, memo, maspTxIn, maspTxOut }) => ({
           txType: txType as TxType,
           hash,
           txCodeId,
           memo,
+          maspTxIn,
+          maspTxOut,
           ...getProps(txType, data),
         })
       ),

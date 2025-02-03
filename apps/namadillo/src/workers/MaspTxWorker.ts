@@ -1,4 +1,3 @@
-import { Configuration, DefaultApi } from "@namada/indexer-client";
 import { initMulticore } from "@namada/sdk/inline-init";
 import { getSdk, Sdk } from "@namada/sdk/web";
 import {
@@ -12,6 +11,8 @@ import { buildTx, EncodedTxData } from "lib/query";
 import {
   Broadcast,
   BroadcastDone,
+  GenerateIbcShieldingMemo,
+  GenerateIbcShieldingMemoDone,
   Init,
   InitDone,
   Shield,
@@ -62,6 +63,18 @@ export class Worker {
     };
   }
 
+  async generateIbcShieldingMemo(
+    m: GenerateIbcShieldingMemo
+  ): Promise<GenerateIbcShieldingMemoDone> {
+    if (!this.sdk) {
+      throw new Error("SDK is not initialized");
+    }
+    return {
+      type: "generate-ibc-shielding-memo-done",
+      payload: await generateIbcShieldingMemo(this.sdk, m.payload),
+    };
+  }
+
   async broadcast(m: Broadcast): Promise<BroadcastDone> {
     if (!this.sdk) {
       throw new Error("SDK is not initialized");
@@ -78,19 +91,13 @@ async function shield(
   payload: Shield["payload"]
 ): Promise<EncodedTxData<ShieldingTransferMsgValue>> {
   const {
-    indexerUrl,
+    publicKeyRevealed,
     account,
     gasConfig,
     chain,
     props: shieldingProps,
     memo,
   } = payload;
-
-  const configuration = new Configuration({ basePath: indexerUrl });
-  const api = new DefaultApi(configuration);
-  const publicKeyRevealed = (
-    await api.apiV1RevealedPublicKeyAddressGet(account.address)
-  ).data.publicKey;
 
   await sdk.masp.loadMaspParams("", chain.chainId);
   const encodedTxData = await buildTx<ShieldingTransferMsgValue>(
@@ -149,6 +156,23 @@ async function shieldedTransfer(
   return encodedTxData;
 }
 
+async function generateIbcShieldingMemo(
+  sdk: Sdk,
+  payload: GenerateIbcShieldingMemo["payload"]
+): Promise<string> {
+  const { target, token, amount, destinationChannelId, chainId } = payload;
+  await sdk.masp.loadMaspParams("", chainId);
+
+  const memo = await sdk.tx.generateIbcShieldingMemo(
+    target,
+    token,
+    amount,
+    destinationChannelId
+  );
+
+  return memo;
+}
+
 // TODO: We will probably move this to the separate worker
 async function broadcast(
   sdk: Sdk,
@@ -185,6 +209,9 @@ export const registerTransferHandlers = (): void => {
   registerBNTransferHandler<ShieldedTransfer>("shielded-transfer");
   registerBNTransferHandler<UnshieldDone>("unshield-done");
   registerBNTransferHandler<Unshield>("unshield");
+  registerBNTransferHandler<GenerateIbcShieldingMemo>(
+    "generate-ibc-shielding-memo"
+  );
   registerBNTransferHandler<Broadcast>("broadcast");
 };
 

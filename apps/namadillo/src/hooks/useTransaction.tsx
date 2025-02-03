@@ -1,5 +1,4 @@
 import { defaultAccountAtom } from "atoms/accounts";
-import { defaultGasConfigFamily } from "atoms/fees";
 import {
   createNotificationId,
   dispatchToastNotificationAtom,
@@ -7,9 +6,10 @@ import {
 import invariant from "invariant";
 import { Atom, useAtomValue, useSetAtom } from "jotai";
 import { AtomWithMutationResult } from "jotai-tanstack-query";
-import { broadcastTx, TransactionPair } from "lib/query";
-import { BuildTxAtomParams, GasConfig, ToastNotification } from "types";
+import { broadcastTxWithEvents, TransactionPair } from "lib/query";
+import { BuildTxAtomParams, ToastNotification } from "types";
 import { TransactionEventsClasses } from "types/events";
+import { TransactionFeeProps, useTransactionFee } from "./useTransactionFee";
 
 type AtomType<T> = Atom<
   AtomWithMutationResult<
@@ -31,6 +31,7 @@ export type useTransactionProps<T> = {
   onSigned?: (tx: TransactionPair<T>) => void;
   onError?: (err: unknown) => void;
   onSuccess?: (tx: TransactionPair<T>) => void;
+  onBroadcasted?: () => void;
 };
 
 export type useTransactionOutput<T> = {
@@ -40,7 +41,7 @@ export type useTransactionOutput<T> = {
   isEnabled: boolean;
   isPending: boolean;
   isSuccess: boolean;
-  gasConfig: GasConfig | undefined;
+  feeProps: TransactionFeeProps;
 };
 
 export const useTransaction = <T,>({
@@ -52,6 +53,7 @@ export const useTransaction = <T,>({
   onSuccess,
   onError,
   onSigned,
+  onBroadcasted,
 }: useTransactionProps<T>): useTransactionOutput<T> => {
   const { data: account } = useAtomValue(defaultAccountAtom);
   const {
@@ -62,17 +64,8 @@ export const useTransaction = <T,>({
 
   const dispatchNotification = useSetAtom(dispatchToastNotificationAtom);
 
-  const gasConfig = useAtomValue(
-    defaultGasConfigFamily(new Array(params.length).fill(eventType))
-  );
-
-  const broadcast = (txPair: TransactionPair<T>): Promise<void> =>
-    broadcastTx(
-      txPair.encodedTxData,
-      txPair.signedTxs,
-      txPair.encodedTxData.meta?.props,
-      eventType
-    );
+  const txKinds = new Array(params.length).fill(eventType);
+  const feeProps = useTransactionFee(txKinds);
 
   const dispatchPendingTxNotification = (
     tx: TransactionPair<T>,
@@ -100,58 +93,61 @@ export const useTransaction = <T,>({
   const execute = async (
     txAdditionalParams: Partial<BuildTxAtomParams<T>> = {}
   ): Promise<TransactionPair<T> | void> => {
-    try {
-      invariant(gasConfig.data, "Gas config not loaded");
-      invariant(
-        account?.address,
-        "Extension not connected or no account is selected"
-      );
+    invariant(
+      account?.address,
+      "Extension not connected or no account is selected"
+    );
 
-      const tx = await buildTx({
-        params,
-        gasConfig: gasConfig.data,
-        account,
-        ...txAdditionalParams,
+    const tx = await buildTx({
+      params,
+      gasConfig: feeProps.gasConfig,
+      account,
+      ...txAdditionalParams,
+    });
+
+    if (!tx) throw "Error: invalid TX created by buildTx";
+    if (onSigned) {
+      onSigned(tx);
+    }
+
+    if (parsePendingTxNotification) {
+      dispatchPendingTxNotification(tx, parsePendingTxNotification(tx));
+    }
+
+    broadcastTxWithEvents(
+      tx.encodedTxData,
+      tx.signedTxs,
+      tx.encodedTxData.meta?.props,
+      eventType
+    )
+      .then(() => {
+        onSuccess?.(tx);
+      })
+      .catch((err) => {
+        if (parseErrorTxNotification) {
+          dispatchErrorNotification(err, parseErrorTxNotification());
+        }
+
+        if (onError) {
+          onError(err);
+        } else {
+          throw err;
+        }
       });
 
-      if (!tx) throw "Error: invalid TX created by buildTx";
-      if (onSigned) {
-        onSigned(tx);
-      }
-
-      await broadcast(tx);
-
-      if (parsePendingTxNotification) {
-        dispatchPendingTxNotification(tx, parsePendingTxNotification(tx));
-      }
-
-      if (onSuccess) {
-        onSuccess(tx);
-      }
-
-      return tx;
-    } catch (err) {
-      if (parseErrorTxNotification) {
-        dispatchErrorNotification(err, parseErrorTxNotification());
-      }
-
-      if (onError) {
-        onError(err);
-      } else {
-        throw err;
-      }
-    }
+    onBroadcasted?.();
+    return tx;
   };
 
   return {
     execute,
+    feeProps,
     isPending,
     isSuccess,
-    gasConfig: gasConfig.data,
     isEnabled: Boolean(
       !isPending &&
         !isSuccess &&
-        gasConfig?.data &&
+        !feeProps.isLoading &&
         account &&
         params.length > 0
     ),

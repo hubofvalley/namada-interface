@@ -40,9 +40,9 @@ export const getAssetImageUrl = (asset?: Asset): string => {
 };
 
 export const getIbcGasConfig = (
-  registry: ChainRegistryEntry
+  registry: ChainRegistryEntry,
+  gasLimit: number = 222_000
 ): GasConfig | undefined => {
-  // TODO: we get a better type for registry to avoid optional chaining?
   // TODO: some chains support multiple fee tokens - what should we do?
   const feeToken = registry.chain.fees?.fee_tokens?.[0];
   if (typeof feeToken !== "undefined") {
@@ -51,20 +51,13 @@ export const getIbcGasConfig = (
       feeToken.low_gas_price ??
       feeToken.fixed_min_gas_price ??
       feeToken.high_gas_price ??
+      feeToken.gas_costs?.ibc_transfer ??
+      feeToken.gas_costs?.cosmos_send ??
       0;
-    // TODO to be more precise on gasLimit, we should estimate the transfer gas fee
-    // `await client.simulate(sourceAddress, [transferMsg], undefined)`
-    const gasLimit = 222_000;
-
-    const asset = registry.assets.assets.find(
-      (asset) => asset.base === feeToken.denom
-    );
-
     return {
       gasPrice: BigNumber(gasPrice),
       gasLimit: BigNumber(gasLimit),
       gasToken: feeToken.denom,
-      asset,
     };
   }
   return undefined;

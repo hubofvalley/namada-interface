@@ -40,7 +40,6 @@ export type GasConfig = {
   gasLimit: GasLimit;
   gasPrice: GasPrice;
   gasToken: GasToken;
-  asset?: Asset;
 };
 
 export type TxGas = Record<Address, GasLimit>;
@@ -62,8 +61,6 @@ export type SettingsTomlOptions = {
   masp_indexer_url?: string;
   rpc_url?: string;
   localnet_enabled?: boolean;
-  github_chain_registry_base_url?: string;
-  github_namada_interface_url?: string;
 };
 
 export type ChainParameters = {
@@ -377,10 +374,4 @@ export type LocalnetToml = {
   token_address: string;
   chain_1_channel: string;
   chain_2_channel: string;
-};
-
-// TODO: remove this after indexer swagger gets fixed
-export type TempIndexerHealthType = {
-  version: string;
-  commit: string;
 };

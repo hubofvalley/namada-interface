@@ -2,7 +2,7 @@ import { DefaultApi } from "@namada/indexer-client";
 import { Account, AccountType, DatedViewingKey } from "@namada/types";
 import {
   accountsAtom,
-  defaultAccountAtom,
+  allDefaultAccountsAtom,
   transparentBalanceAtom,
 } from "atoms/accounts/atoms";
 import { indexerApiAtom } from "atoms/api";
@@ -21,6 +21,7 @@ import { atom, getDefaultStore } from "jotai";
 import { atomWithQuery } from "jotai-tanstack-query";
 import { atomWithStorage } from "jotai/utils";
 import { Address, AddressWithAsset } from "types";
+import { namadaAsset, toDisplayAmount } from "utils";
 import {
   mapNamadaAddressesToAssets,
   mapNamadaAssetsToTokenBalances,
@@ -28,6 +29,7 @@ import {
 import {
   fetchBlockHeightByTimestamp,
   fetchShieldedBalance,
+  fetchShieldRewards,
   shieldedSync,
 } from "./services";
 
@@ -74,17 +76,17 @@ export const viewingKeysAtom = atomWithQuery<
   [DatedViewingKey, DatedViewingKey[]]
 >((get) => {
   const accountsQuery = get(accountsAtom);
-  const defaultAccountQuery = get(defaultAccountAtom);
+  const defaultAccountsQuery = get(allDefaultAccountsAtom);
   const api = get(indexerApiAtom);
 
   return {
-    queryKey: ["viewing-keys", accountsQuery.data, defaultAccountQuery.data],
+    queryKey: ["viewing-keys", accountsQuery.data, defaultAccountsQuery.data],
     ...queryDependentFn(async () => {
       const shieldedAccounts = accountsQuery.data!.filter(
         (a) => a.type === AccountType.ShieldedKeys
       );
-      const defaultShieldedAccount = shieldedAccounts.find(
-        (a) => a.alias === defaultAccountQuery.data?.alias
+      const defaultShieldedAccount = defaultAccountsQuery.data?.find(
+        (account) => account.type === AccountType.ShieldedKeys
       );
 
       if (!defaultShieldedAccount) {
@@ -100,7 +102,7 @@ export const viewingKeysAtom = atomWithQuery<
       );
 
       return [defaultViewingKey, viewingKeys];
-    }, [accountsQuery, defaultAccountQuery]),
+    }, [accountsQuery, defaultAccountsQuery]),
   };
 });
 
@@ -109,6 +111,15 @@ export const storageShieldedBalanceAtom = atomWithStorage<
 >("namadillo:shieldedBalance", {});
 
 export const shieldedSyncProgress = atom(0);
+
+export const lastCompletedShieldedSyncAtom = atomWithStorage<Date | undefined>(
+  "namadillo:last-shielded-sync",
+  undefined
+);
+
+export const isShieldedSyncCompleteAtom = atom(
+  (get) => get(shieldedSyncProgress) === 1
+);
 
 export const shieldedBalanceAtom = atomWithQuery((get) => {
   const enablePolling = get(shouldUpdateBalanceAtom);
@@ -134,8 +145,7 @@ export const shieldedBalanceAtom = atomWithQuery((get) => {
         !chainTokens ||
         !chainId ||
         !namTokenAddress ||
-        !rpcUrl ||
-        !maspIndexerUrl
+        !rpcUrl
       ) {
         return [];
       }
@@ -166,6 +176,8 @@ export const shieldedBalanceAtom = atomWithQuery((get) => {
         ...storage,
         [viewingKey.key]: shieldedBalance,
       });
+
+      set(lastCompletedShieldedSyncAtom, new Date());
 
       return shieldedBalance;
     }, [
@@ -200,7 +212,7 @@ export const namadaShieldedAssetsAtom = atomWithQuery((get) => {
           chainTokensQuery.data!,
           chainParameters.data!.chainId
         ),
-      [chainTokensQuery, chainParameters]
+      [chainTokensQuery, chainParameters, viewingKeysQuery]
     ),
   };
 });
@@ -240,12 +252,10 @@ export const shieldedTokensAtom = atomWithQuery<TokenBalance[]>((get) => {
   return {
     queryKey: ["shielded-tokens", shieldedAssets.data, tokenPrices.data],
     ...queryDependentFn(
-      () =>
-        Promise.resolve(
-          mapNamadaAssetsToTokenBalances(
-            shieldedAssets.data ?? {},
-            tokenPrices.data ?? {}
-          )
+      async () =>
+        mapNamadaAssetsToTokenBalances(
+          shieldedAssets.data ?? {},
+          tokenPrices.data ?? {}
         ),
       [shieldedAssets, tokenPrices]
     ),
@@ -272,5 +282,55 @@ export const transparentTokensAtom = atomWithQuery<TokenBalance[]>((get) => {
         ),
       [transparentAssets, tokenPrices]
     ),
+  };
+});
+
+export const storageShieldedRewardsAtom = atomWithStorage<
+  Record<Address, { minDenomAmount: string }>
+>("namadillo:shieldedRewards", {});
+
+export const shieldRewardsAtom = atomWithQuery((get) => {
+  const viewingKeysQuery = get(viewingKeysAtom);
+  const chainParametersQuery = get(chainParametersAtom);
+  const { set } = getDefaultStore();
+
+  return {
+    queryKey: ["shield-rewards", viewingKeysQuery.data],
+    ...queryDependentFn(async () => {
+      const [viewingKey] = viewingKeysQuery.data!;
+      const { chainId } = chainParametersQuery.data!;
+      const minDenomAmount = BigNumber(
+        await fetchShieldRewards(viewingKey, chainId)
+      );
+
+      const storage = get(storageShieldedRewardsAtom);
+      set(storageShieldedRewardsAtom, {
+        ...storage,
+        [viewingKey.key]: { minDenomAmount: minDenomAmount.toString() },
+      });
+
+      return { minDenomAmount };
+    }, [viewingKeysQuery, chainParametersQuery]),
+  };
+});
+
+export const cachedShieldedRewardsAtom = atom((get) => {
+  const viewingKeysQuery = get(viewingKeysAtom);
+  const storage = get(storageShieldedRewardsAtom);
+
+  if (!viewingKeysQuery.data || !storage) {
+    return { amount: BigNumber(0) };
+  }
+  const [viewingKey] = viewingKeysQuery.data;
+
+  const rewards = get(shieldRewardsAtom);
+  const data = rewards.isSuccess ? rewards.data : storage[viewingKey.key];
+
+  if (!data) {
+    return { amount: BigNumber(0) };
+  }
+
+  return {
+    amount: toDisplayAmount(namadaAsset(), BigNumber(data.minDenomAmount)),
   };
 });

@@ -5,6 +5,7 @@ import {
   TxResponseMsgValue,
   UnshieldingTransferMsgValue,
 } from "@namada/types";
+import BigNumber from "bignumber.js";
 import { EncodedTxData, TransactionPair } from "lib/query";
 import { ChainSettings, GasConfig } from "types";
 import { WebWorkerMessage } from "./utils";
@@ -23,7 +24,7 @@ type ShieldPayload = {
   gasConfig: GasConfig;
   props: ShieldingTransferMsgValue[];
   chain: ChainSettings;
-  indexerUrl: string;
+  publicKeyRevealed: boolean;
   memo?: string;
 };
 export type Shield = WebWorkerMessage<"shield", ShieldPayload>;
@@ -59,6 +60,22 @@ export type ShieldedTransfer = WebWorkerMessage<
 export type ShieldedTransferDone = WebWorkerMessage<
   "shielded-transfer-done",
   EncodedTxData<ShieldedTransferMsgValue>
+>;
+
+type GenerateIbcShieldingMemoPayload = {
+  target: string;
+  token: string;
+  amount: BigNumber;
+  destinationChannelId: string;
+  chainId: string;
+};
+export type GenerateIbcShieldingMemo = WebWorkerMessage<
+  "generate-ibc-shielding-memo",
+  GenerateIbcShieldingMemoPayload
+>;
+export type GenerateIbcShieldingMemoDone = WebWorkerMessage<
+  "generate-ibc-shielding-memo-done",
+  string
 >;
 
 type BroadcastPayload = TransactionPair<unknown>;

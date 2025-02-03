@@ -1,6 +1,10 @@
 import { ActionButton, Stack } from "@namada/components";
 import { routes } from "App/routes";
-import { storageShieldedBalanceAtom } from "atoms/balance/atoms";
+import {
+  lastCompletedShieldedSyncAtom,
+  storageShieldedBalanceAtom,
+  storageShieldedRewardsAtom,
+} from "atoms/balance/atoms";
 import { clearShieldedContextAtom } from "atoms/settings";
 import { useAtom, useSetAtom } from "jotai";
 import { RESET } from "jotai/utils";
@@ -8,10 +12,16 @@ import { RESET } from "jotai/utils";
 export const SettingsMASP = (): JSX.Element => {
   const [clearShieldedContext] = useAtom(clearShieldedContextAtom);
   const setStorageShieldedBalance = useSetAtom(storageShieldedBalanceAtom);
+  const setLastCompletedShieldedSync = useSetAtom(
+    lastCompletedShieldedSyncAtom
+  );
+  const setStorageShieldedRewards = useSetAtom(storageShieldedRewardsAtom);
 
   const onInvalidateShieldedContext = async (): Promise<void> => {
     await clearShieldedContext.mutateAsync();
     setStorageShieldedBalance(RESET);
+    setLastCompletedShieldedSync(undefined);
+    setStorageShieldedRewards(RESET);
     location.href = routes.root;
   };
 
