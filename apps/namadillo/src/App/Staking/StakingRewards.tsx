@@ -5,8 +5,10 @@ import {
   Stack,
 } from "@namada/components";
 import { ClaimRewardsMsgValue } from "@namada/types";
+import { InlineError } from "App/Common/InlineError";
 import { ModalContainer } from "App/Common/ModalContainer";
 import { NamCurrency } from "App/Common/NamCurrency";
+import { TransactionFeeButton } from "App/Common/TransactionFeeButton";
 import { defaultAccountAtom } from "atoms/accounts";
 import { applicationFeaturesAtom } from "atoms/settings";
 import {
@@ -46,6 +48,7 @@ export const StakingRewards = (): JSX.Element => {
     execute: claimRewards,
     isEnabled: claimRewardsTxEnabled,
     isPending: claimRewardsPending,
+    error: claimError,
   } = useTransaction({
     params: parseStakingRewardsParams(),
     createTxAtom: claimRewardsAtom,
@@ -63,6 +66,8 @@ export const StakingRewards = (): JSX.Element => {
     execute: claimRewardsAndStake,
     isEnabled: claimAndStakeTxEnabled,
     isPending: claimAndStakePending,
+    error: claimAndStakeError,
+    feeProps,
   } = useTransaction({
     params: parseStakingRewardsParams(),
     createTxAtom: claimAndStakeRewardsAtom,
@@ -86,6 +91,8 @@ export const StakingRewards = (): JSX.Element => {
     claimRewardsEnabled ?
       sumBigNumberArray(Object.values(rewards || {}))
     : new BigNumber(0);
+
+  const error = claimError?.message ?? claimAndStakeError?.message;
 
   return (
     <Modal onClose={onCloseModal}>
@@ -127,7 +134,9 @@ export const StakingRewards = (): JSX.Element => {
             >
               {claimRewardsPending ? "Loading..." : "Claim"}
             </ActionButton>
+            <InlineError errorMessage={error} />
           </Stack>
+          <TransactionFeeButton feeProps={feeProps} />
         </Stack>
       </ModalContainer>
     </Modal>

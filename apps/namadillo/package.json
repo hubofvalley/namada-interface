@@ -1,6 +1,6 @@
 {
   "name": "@namada/namadillo",
-  "version": "1.5.0",
+  "version": "1.11.1",
   "description": "Namadillo",
   "repository": "https://github.com/anoma/namada-interface/",
   "author": "Heliax Dev <info@heliax.dev>",
@@ -49,7 +49,7 @@
     "dev": "VITE_REVISION=$(git rev-parse HEAD) vite",
     "dev:local": "NODE_ENV=development NAMADA_INTERFACE_LOCAL=\"true\" yarn dev",
     "dev:proxy": "VITE_PROXY=true && ./scripts/start-proxies.sh && yarn dev:local",
-    "build": "NODE_ENV=production && yarn wasm:build && VITE_REVISION=$(git rev-parse HEAD) vite build",
+    "build": "NODE_ENV=production && yarn wasm:build:multicore && VITE_REVISION=$(git rev-parse HEAD) vite build",
     "build:only": "NODE_ENV=production && VITE_REVISION=$(git rev-parse HEAD) vite build",
     "lint": "eslint src --ext .ts,.tsx",
     "lint:fix": "yarn lint -- --fix",
@@ -128,6 +128,7 @@
     "typescript-plugin-css-modules": "^5.1.0",
     "vite": "^5.4.3",
     "vite-plugin-node-polyfills": "^0.22.0",
+    "vite-plugin-pwa": "^0.21.1",
     "vite-tsconfig-paths": "^5.0.1"
   }
 }

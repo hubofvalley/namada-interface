@@ -3,6 +3,7 @@ import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 import checker from "vite-plugin-checker";
 import { nodePolyfills } from "vite-plugin-node-polyfills";
+import { VitePWA } from "vite-plugin-pwa";
 import tsconfigPaths from "vite-tsconfig-paths";
 
 export default defineConfig(() => {
@@ -10,10 +11,24 @@ export default defineConfig(() => {
     server: {
       headers: {
         "Cross-Origin-Opener-Policy": "same-origin",
-        "Cross-Origin-Embedder-Policy": "require-corp",
+        "Cross-Origin-Embedder-Policy": "credentialless",
       },
     },
     plugins: [
+      VitePWA({
+        srcDir: "src",
+        filename: "sw.ts",
+        strategies: "injectManifest",
+        injectRegister: false,
+        manifest: false,
+        injectManifest: {
+          injectionPoint: undefined,
+        },
+        devOptions: {
+          enabled: true,
+          type: "module",
+        },
+      }),
       react(),
       tsconfigPaths(),
       nodePolyfills({

@@ -37,7 +37,7 @@ export const proposalIdToString = (proposalId: bigint): string =>
   `#${proposalId.toString()}`;
 
 export const useTransactionEventListener = <T extends keyof WindowEventMap>(
-  event: T,
+  event: T | T[],
   handler: (event: WindowEventMap[T]) => void
 ): void => {
   // `handlerRef` is useful to avoid recreating the listener every time
@@ -46,9 +46,17 @@ export const useTransactionEventListener = <T extends keyof WindowEventMap>(
 
   useEffect(() => {
     const callback: typeof handler = (event) => handlerRef.current(event);
-    window.addEventListener(event, callback);
+    if (Array.isArray(event)) {
+      event.forEach((e) => window.addEventListener(e, callback));
+    } else {
+      window.addEventListener(event, callback);
+    }
     return () => {
-      window.removeEventListener(event, callback);
+      if (Array.isArray(event)) {
+        event.forEach((e) => window.removeEventListener(e, callback));
+      } else {
+        window.removeEventListener(event, callback);
+      }
     };
   }, [event]);
 };
@@ -80,8 +88,8 @@ export const namadaAsset = (): Asset => {
   return asset satisfies Asset;
 };
 
-export const isNamadaAsset = (asset: Asset): boolean =>
-  asset.symbol === namadaAsset().symbol;
+export const isNamadaAsset = (asset?: Asset): boolean =>
+  asset?.symbol === namadaAsset().symbol;
 
 export const toDisplayAmount = (
   asset: Asset,
@@ -91,6 +99,7 @@ export const toDisplayAmount = (
   if (!displayUnit) {
     return baseAmount;
   }
+
   return baseAmount.shiftedBy(-displayUnit.exponent);
 };
 

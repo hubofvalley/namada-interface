@@ -10,7 +10,7 @@ import { isPublicKeyRevealed } from "lib/query";
 import isEqual from "lodash.isequal";
 import { Address } from "types";
 import { TxKind } from "types/txKind";
-import { toDisplayAmount } from "utils";
+import { isNamadaAsset, toDisplayAmount } from "utils";
 import { fetchGasEstimate, fetchTokensGasPrice } from "./services";
 
 export type GasPriceTableItem = {
@@ -37,7 +37,8 @@ export const gasEstimateFamily = atomFamily(
           }
           const counter = (kind: TxKind): number | undefined =>
             txKinds.filter((i) => i === kind).length || undefined;
-          return fetchGasEstimate(api, [
+
+          const gasEstimate = await fetchGasEstimate(api, [
             counter("Bond"),
             counter("ClaimRewards"),
             counter("Unbond"),
@@ -51,6 +52,16 @@ export const gasEstimateFamily = atomFamily(
             counter("RevealPk"),
             counter("Redelegate"),
           ]);
+
+          // TODO: we need to improve this estimate API. Currently, gasEstimate.min returns
+          // the minimum gas limit ever used for a TX, and avg is failing in most of the transactions.
+          const newMin = gasEstimate.max;
+          return {
+            min: newMin,
+            avg: Math.ceil(newMin * 1.25),
+            max: Math.ceil(newMin * 1.5),
+            totalEstimates: gasEstimate.totalEstimates,
+          };
         },
       };
     }),
@@ -62,7 +73,7 @@ export const gasPriceTableAtom = atomWithQuery<GasPriceTable>((get) => {
   const chainAssetsMap = get(chainAssetsMapAtom);
 
   return {
-    queryKey: ["gas-price-table"],
+    queryKey: ["gas-price-table", chainAssetsMap],
     ...queryDependentFn(async () => {
       const response = await fetchTokensGasPrice(api);
       return response.map(({ token, minDenomAmount }) => {
@@ -70,8 +81,10 @@ export const gasPriceTableAtom = atomWithQuery<GasPriceTable>((get) => {
         const baseAmount = BigNumber(minDenomAmount);
         return {
           token,
-          // TODO should we run `toDisplayAmount` for all tokens or only NAM?
-          gasPrice: asset ? toDisplayAmount(asset, baseAmount) : baseAmount,
+          gasPrice:
+            asset && isNamadaAsset(asset) ?
+              toDisplayAmount(asset, baseAmount)
+            : baseAmount,
         };
       });
     }, []),

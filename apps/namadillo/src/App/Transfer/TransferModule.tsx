@@ -1,22 +1,32 @@
-import { Chain, Chains } from "@chain-registry/types";
+import { Asset, Chain, Chains } from "@chain-registry/types";
 import { ActionButton, Stack } from "@namada/components";
 import { mapUndefined } from "@namada/utils";
 import { InlineError } from "App/Common/InlineError";
+import { chainAssetsMapAtom } from "atoms/chain";
 import BigNumber from "bignumber.js";
+import clsx from "clsx";
+import { useKeychainVersion } from "hooks/useKeychainVersion";
 import { TransactionFeeProps } from "hooks/useTransactionFee";
+import { wallets } from "integrations";
+import { useAtomValue } from "jotai";
 import { useMemo, useState } from "react";
 import {
   Address,
+  AddressWithAssetAndAmount,
   AddressWithAssetAndAmountMap,
   GasConfig,
   WalletProvider,
 } from "types";
+import { filterAvailableAsssetsWithBalance } from "utils/assets";
+import { checkKeychainCompatibleWithMasp } from "utils/compatibility";
 import { getDisplayGasFee } from "utils/gas";
 import { parseChainInfo } from "./common";
+import { CurrentStatus } from "./CurrentStatus";
 import { IbcChannels } from "./IbcChannels";
 import { SelectAssetModal } from "./SelectAssetModal";
 import { SelectChainModal } from "./SelectChainModal";
 import { SelectWalletModal } from "./SelectWalletModal";
+import { SuccessAnimation } from "./SuccessAnimation";
 import { TransferArrow } from "./TransferArrow";
 import { TransferDestination } from "./TransferDestination";
 import { TransferSource } from "./TransferSource";
@@ -25,12 +35,12 @@ type TransferModuleConfig = {
   wallet?: WalletProvider;
   walletAddress?: string;
   availableWallets?: WalletProvider[];
-  onChangeWallet?: (wallet: WalletProvider) => void;
   connected?: boolean;
   availableChains?: Chains;
   chain?: Chain;
-  onChangeChain?: (chain: Chain) => void;
   isShielded?: boolean;
+  onChangeWallet?: (wallet: WalletProvider) => void;
+  onChangeChain?: (chain: Chain) => void;
   onChangeShielded?: (isShielded: boolean) => void;
 };
 
@@ -67,6 +77,7 @@ export type OnSubmitTransferParams = {
 export type TransferModuleProps = {
   source: TransferSourceProps;
   destination: TransferDestinationProps;
+  onSubmitTransfer?: (params: OnSubmitTransferParams) => void;
   requiresIbcChannels?: boolean;
   gasConfig?: GasConfig;
   feeProps?: TransactionFeeProps;
@@ -74,8 +85,11 @@ export type TransferModuleProps = {
   submittingText?: string;
   isSubmitting?: boolean;
   errorMessage?: string;
-  onSubmitTransfer: (params: OnSubmitTransferParams) => void;
+  currentStatus?: string;
+  currentStatusExplanation?: string;
+  completedAt?: Date;
   buttonTextErrors?: Partial<Record<ValidationResult, string>>;
+  onComplete?: () => void;
 } & (
   | { isIbcTransfer?: false; ibcOptions?: undefined }
   | { isIbcTransfer: true; ibcOptions: IbcOptions }
@@ -90,6 +104,8 @@ type ValidationResult =
   | "NoDestinationChain"
   | "NoTransactionFee"
   | "NotEnoughBalance"
+  | "NotEnoughBalanceForFees"
+  | "KeychainNotCompatibleWithMasp"
   | "Ok";
 
 export const TransferModule = ({
@@ -105,10 +121,12 @@ export const TransferModule = ({
   requiresIbcChannels,
   onSubmitTransfer,
   errorMessage,
+  currentStatus,
+  currentStatusExplanation,
+  completedAt,
+  onComplete,
   buttonTextErrors = {},
 }: TransferModuleProps): JSX.Element => {
-  const gasConfig = gasConfigProp ?? feeProps?.gasConfig;
-
   const [walletSelectorModalOpen, setWalletSelectorModalOpen] = useState(false);
   const [sourceChainModalOpen, setSourceChainModalOpen] = useState(false);
   const [destinationChainModalOpen, setDestinationChainModalOpen] =
@@ -117,8 +135,19 @@ export const TransferModule = ({
   const [customAddressActive, setCustomAddressActive] = useState(
     destination.enableCustomAddress && !destination.availableWallets
   );
+  const chainAssetsMap = useAtomValue(chainAssetsMapAtom);
+  const keychainVersion = useKeychainVersion();
 
   const [memo, setMemo] = useState<undefined | string>();
+  const gasConfig = gasConfigProp ?? feeProps?.gasConfig;
+
+  const displayGasFee = useMemo(() => {
+    return gasConfig ? getDisplayGasFee(gasConfig, chainAssetsMap) : undefined;
+  }, [gasConfig]);
+
+  const availableAssets: AddressWithAssetAndAmountMap = useMemo(() => {
+    return filterAvailableAsssetsWithBalance(source.availableAssets);
+  }, [source.availableAssets]);
 
   const selectedAsset = mapUndefined(
     (address) => source.availableAssets?.[address],
@@ -130,29 +159,44 @@ export const TransferModule = ({
 
     if (
       typeof selectedAssetAddress === "undefined" ||
-      typeof availableAmount === "undefined"
+      typeof availableAmount === "undefined" ||
+      typeof availableAssets === "undefined"
     ) {
       return undefined;
     }
 
-    if (!gasConfig || gasConfig.gasToken !== selectedAssetAddress) {
+    if (
+      !displayGasFee?.totalDisplayAmount ||
+      // Don't subtract if the gas token is different than the selected asset:
+      gasConfig?.gasToken !== selectedAssetAddress
+    ) {
       return availableAmount;
     }
 
-    const totalFees = getDisplayGasFee(gasConfig);
-    const amountMinusFees = availableAmount.minus(totalFees);
+    const amountMinusFees = availableAmount
+      .minus(displayGasFee.totalDisplayAmount)
+      .decimalPlaces(6);
+
     return BigNumber.max(amountMinusFees, 0);
-  }, [source.selectedAssetAddress, source.availableAmount, gasConfig]);
+  }, [source.selectedAssetAddress, source.availableAmount, displayGasFee]);
 
   const validationResult = useMemo((): ValidationResult => {
     if (!source.wallet) {
       return "NoSourceWallet";
+    } else if (
+      (source.isShielded || destination.isShielded) &&
+      keychainVersion &&
+      !checkKeychainCompatibleWithMasp(keychainVersion)
+    ) {
+      return "KeychainNotCompatibleWithMasp";
     } else if (!source.chain) {
       return "NoSourceChain";
     } else if (!destination.chain) {
       return "NoDestinationChain";
     } else if (!source.selectedAssetAddress) {
       return "NoSelectedAsset";
+    } else if (!hasEnoughBalanceForFees()) {
+      return "NotEnoughBalanceForFees";
     } else if (!source.amount || source.amount.eq(0)) {
       return "NoAmount";
     } else if (
@@ -220,6 +264,68 @@ export const TransferModule = ({
     setWalletSelectorModalOpen(true);
   };
 
+  function hasEnoughBalanceForFees(): boolean {
+    // Skip if transaction fees will be handled by another wallet, like Keplr.
+    // (Ex: when users transfer from IBC to Namada)
+    if (source.wallet && source.wallet !== wallets.namada) {
+      return true;
+    }
+
+    if (!availableAssets || !gasConfig || !displayGasFee) {
+      return false;
+    }
+
+    // Find how much the user has in their account for the selected fee token
+    const feeTokenAddress = gasConfig.gasToken;
+
+    if (!availableAssets.hasOwnProperty(feeTokenAddress)) {
+      return false;
+    }
+
+    const assetDisplayAmount = availableAssets[feeTokenAddress].amount;
+    const feeDisplayAmount = displayGasFee?.totalDisplayAmount;
+
+    return assetDisplayAmount.gt(feeDisplayAmount);
+  }
+
+  const findTokenFeeIndex = (chain: Chain, asset: Asset): number => {
+    if (!chain.fees) return -1;
+    return chain.fees.fee_tokens.findIndex((token) => {
+      const lastPart = token.denom.split("/").pop();
+      if (!lastPart) return false;
+      return lastPart.toLowerCase() === asset.base.toLowerCase();
+    });
+  };
+
+  const sortedAssets = useMemo(() => {
+    if (!availableAssets) {
+      return [];
+    }
+
+    return Object.values(availableAssets).sort(
+      (
+        asset1: AddressWithAssetAndAmount,
+        asset2: AddressWithAssetAndAmount
+      ) => {
+        if (!source.chain) {
+          return 0;
+        }
+
+        const asset1Index = findTokenFeeIndex(source.chain, asset1.asset);
+        const asset2Index = findTokenFeeIndex(source.chain, asset2.asset);
+
+        // No fee assets, so we sort them by the amounts owned by the user
+        if (asset1Index === -1 && asset2Index === -1)
+          return asset1.amount.gt(asset2.amount) ? -1 : 1;
+
+        if (asset1Index === -1) return 1;
+        if (asset2Index === -1) return -1;
+
+        return asset1Index - asset2Index;
+      }
+    );
+  }, [availableAssets, source.chain]);
+
   const getButtonTextError = (
     id: ValidationResult,
     defaultText: string
@@ -259,6 +365,12 @@ export const TransferModule = ({
 
       case "NotEnoughBalance":
         return getText("Not enough balance");
+
+      case "NotEnoughBalanceForFees":
+        return getText("Not enough balance to pay for transaction fees");
+
+      case "KeychainNotCompatibleWithMasp":
+        return getText("Keychain is not compatible with MASP");
     }
 
     if (!availableAmountMinusFees) {
@@ -274,7 +386,14 @@ export const TransferModule = ({
   return (
     <>
       <section className="max-w-[480px] mx-auto" role="widget">
-        <Stack as="form" onSubmit={onSubmit}>
+        <Stack
+          className={clsx({
+            "opacity-0 transition-all duration-300 pointer-events-none":
+              completedAt,
+          })}
+          as="form"
+          onSubmit={onSubmit}
+        >
           <TransferSource
             isConnected={Boolean(source.connected)}
             wallet={source.wallet}
@@ -287,21 +406,25 @@ export const TransferModule = ({
             amount={source.amount}
             openProviderSelector={onChangeWallet(source)}
             openChainSelector={
-              source.onChangeChain ?
+              source.onChangeChain && !isSubmitting ?
                 () => setSourceChainModalOpen(true)
               : undefined
             }
             openAssetSelector={
-              source.onChangeSelectedAsset ?
+              source.onChangeSelectedAsset && !isSubmitting ?
                 () => setAssetSelectorModalOpen(true)
               : undefined
             }
             onChangeAmount={source.onChangeAmount}
             isShielded={source.isShielded}
             onChangeShielded={source.onChangeShielded}
+            isSubmitting={isSubmitting}
           />
           <i className="flex items-center justify-center w-11 mx-auto -my-8 relative z-10">
-            <TransferArrow color={destination.isShielded ? "#FF0" : "#FFF"} />
+            <TransferArrow
+              color={destination.isShielded ? "#FF0" : "#FFF"}
+              isAnimating={isSubmitting}
+            />
           </i>
           <TransferDestination
             wallet={destination.wallet}
@@ -319,16 +442,20 @@ export const TransferModule = ({
             customAddressActive={customAddressActive}
             openProviderSelector={onChangeWallet(destination)}
             openChainSelector={
-              destination.onChangeChain ?
+              destination.onChangeChain && !isSubmitting ?
                 () => setDestinationChainModalOpen(true)
               : undefined
             }
             onChangeAddress={destination.onChangeCustomAddress}
             memo={memo}
             onChangeMemo={setMemo}
-            gasConfig={gasConfig}
             feeProps={feeProps}
             changeFeeEnabled={changeFeeEnabled}
+            gasDisplayAmount={displayGasFee?.totalDisplayAmount}
+            gasAsset={displayGasFee?.asset}
+            destinationAsset={selectedAsset?.asset}
+            amount={source.amount}
+            isSubmitting={isSubmitting}
           />
           {isIbcTransfer && requiresIbcChannels && (
             <IbcChannels
@@ -339,18 +466,39 @@ export const TransferModule = ({
               onChangeDestination={ibcOptions.onChangeDestinationChannel}
             />
           )}
-          <InlineError errorMessage={errorMessage} />
-          <ActionButton
-            outlineColor={buttonColor}
-            backgroundColor={buttonColor}
-            backgroundHoverColor="transparent"
-            textColor="black"
-            textHoverColor={buttonColor}
-            disabled={validationResult !== "Ok" || isSubmitting}
-          >
-            {getButtonText()}
-          </ActionButton>
+          {!isSubmitting && <InlineError errorMessage={errorMessage} />}
+          {currentStatus && isSubmitting && (
+            <CurrentStatus
+              status={currentStatus}
+              explanation={currentStatusExplanation}
+            />
+          )}
+          {!isSubmitting && onSubmitTransfer && (
+            <ActionButton
+              outlineColor={buttonColor}
+              backgroundColor={buttonColor}
+              backgroundHoverColor="transparent"
+              textColor="black"
+              textHoverColor={buttonColor}
+              disabled={validationResult !== "Ok" || isSubmitting}
+            >
+              {getButtonText()}
+            </ActionButton>
+          )}
+          {validationResult === "KeychainNotCompatibleWithMasp" && (
+            <div className="text-center text-fail text-xs selection:bg-fail selection:text-white mb-12">
+              Please update your Namada Keychain in order to make shielded
+              transfers
+            </div>
+          )}
         </Stack>
+        {completedAt && selectedAsset?.asset && source.amount && (
+          <SuccessAnimation
+            asset={selectedAsset.asset}
+            amount={source.amount}
+            onCompleteAnimation={onComplete}
+          />
+        )}
       </section>
 
       {walletSelectorModalOpen &&
@@ -369,7 +517,7 @@ export const TransferModule = ({
         source.walletAddress && (
           <SelectAssetModal
             onClose={() => setAssetSelectorModalOpen(false)}
-            assets={Object.values(source.availableAssets || {})}
+            assets={sortedAssets}
             onSelect={source.onChangeSelectedAsset}
             wallet={source.wallet}
             walletAddress={source.walletAddress}

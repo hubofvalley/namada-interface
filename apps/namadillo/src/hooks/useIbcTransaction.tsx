@@ -1,6 +1,10 @@
 import { SigningStargateClient } from "@cosmjs/stargate";
-import { QueryStatus } from "@tanstack/query-core";
-import { useQuery, UseQueryResult } from "@tanstack/react-query";
+import {
+  useMutation,
+  UseMutationResult,
+  useQuery,
+  UseQueryResult,
+} from "@tanstack/react-query";
 import { TokenCurrency } from "App/Common/TokenCurrency";
 import {
   broadcastIbcTransactionAtom,
@@ -45,14 +49,19 @@ type useIbcTransactionProps = {
 };
 
 type useIbcTransactionOutput = {
-  transferToNamada: (
-    destinationAddress: string,
-    displayAmount: BigNumber,
-    memo?: string,
-    onUpdateStatus?: (status: string) => void
-  ) => Promise<TransferTransactionData>;
-  transferStatus: "idle" | QueryStatus;
   gasConfig: UseQueryResult<GasConfig>;
+  transferToNamada: UseMutationResult<
+    TransferTransactionData,
+    Error,
+    IbcTransferProps
+  >;
+};
+
+type IbcTransferProps = {
+  destinationAddress: string;
+  displayAmount: BigNumber;
+  memo?: string;
+  onUpdateStatus?: (status: string) => void;
 };
 
 export const useIbcTransaction = ({
@@ -134,21 +143,21 @@ export const useIbcTransaction = ({
         };
   };
 
-  const transferToNamada = async (
-    destinationAddress: Address,
-    displayAmount: BigNumber,
-    memo: string = "",
-    onUpdateStatus?: (status: string) => void
-  ): Promise<TransferTransactionData> => {
-    invariant(sourceAddress, "Error: Source address is not defined");
-    invariant(selectedAsset, "Error: No asset is selected");
-    invariant(registry, "Error: Invalid chain");
-    invariant(sourceChannel, "Error: Invalid IBC source channel");
-    invariant(stargateClient, "Error: Stargate client not initialized");
-    invariant(rpcUrl, "Error: RPC URL not initialized");
+  const transferToNamada = async ({
+    destinationAddress,
+    displayAmount,
+    memo = "",
+    onUpdateStatus,
+  }: IbcTransferProps): Promise<TransferTransactionData> => {
+    invariant(sourceAddress, "Source address is not defined");
+    invariant(selectedAsset, "No asset is selected");
+    invariant(registry, "Invalid chain");
+    invariant(sourceChannel, "Invalid IBC source channel");
+    invariant(stargateClient, "Stargate client not initialized");
+    invariant(rpcUrl, "RPC URL not initialized");
     invariant(
       !shielded || destinationChannel,
-      "Error: Destination channel not provided"
+      "Destination channel not provided"
     );
 
     // Set Keplr option to allow Namadillo to set the transaction fee
@@ -161,6 +170,21 @@ export const useIbcTransaction = ({
     };
 
     try {
+      // In case the first estimate has failed for some reason, we try to refetch
+      const gasConfig = await (async () => {
+        if (!gasConfigQuery.data) {
+          onUpdateStatus?.("Estimating required gas...");
+          return (await gasConfigQuery.refetch()).data;
+        }
+        return gasConfigQuery.data;
+      })();
+
+      invariant(
+        gasConfig,
+        "Failed to simulate transaction and obtain gas usage." +
+          gasConfigQuery.error?.message
+      );
+
       const baseAmount = toBaseAmount(selectedAsset.asset, displayAmount);
 
       // This step might require a bit of time
@@ -187,16 +211,6 @@ export const useIbcTransaction = ({
         maspCompatibleMemo
       );
 
-      // In case the first estimate has failed for some reason, we try to refetch
-      const gasConfig = await (async () => {
-        if (!gasConfigQuery.data) {
-          onUpdateStatus?.("Estimating required gas...");
-          return (await gasConfigQuery.refetch()).data;
-        }
-        return gasConfigQuery.data;
-      })();
-      invariant(gasConfig, "Error: Failed to estimate gas usage");
-
       onUpdateStatus?.("Waiting for signature...");
       const signedMessage = await getSignedMessage(
         stargateClient,
@@ -215,10 +229,12 @@ export const useIbcTransaction = ({
         rpcUrl || "",
         selectedAsset.asset,
         chainId,
-        getIbcTransferStage(!!shielded)
+        getIbcTransferStage(!!shielded),
+        !!shielded
       );
       dispatchPendingTxNotification(tx);
       setTxHash(tx.hash);
+      onUpdateStatus?.("Relaying transfer to Namada...");
       return tx;
     } catch (err) {
       dispatchErrorTxNotification(err);
@@ -228,9 +244,12 @@ export const useIbcTransaction = ({
     }
   };
 
+  const transferToNamadaQuery = useMutation({
+    mutationFn: transferToNamada,
+  });
+
   return {
-    transferToNamada,
+    transferToNamada: transferToNamadaQuery,
     gasConfig: gasConfigQuery,
-    transferStatus: broadcastIbcTx.status,
   };
 };

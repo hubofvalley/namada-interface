@@ -25,6 +25,8 @@ export type PublicKey = string;
 
 export type Address = string;
 
+export type BaseDenom = string;
+
 export type ChainId = string;
 
 export type GasLimit = BigNumber;
@@ -32,14 +34,19 @@ export type GasLimit = BigNumber;
 export type GasPrice = BigNumber;
 
 // For Namada chain, it should be the address. For Ibc, it should be the base denom
-export type GasToken = Address | string;
+export type GasToken = Address | BaseDenom;
 
 export type AddressBalance = Record<Address, BigNumber>;
 
 export type GasConfig = {
   gasLimit: GasLimit;
-  gasPrice: GasPrice;
+  gasPriceInMinDenom: GasPrice;
   gasToken: GasToken;
+};
+
+export type GasConfigToDisplay = {
+  totalDisplayAmount: BigNumber;
+  asset: Asset;
 };
 
 export type TxGas = Record<Address, GasLimit>;
@@ -157,11 +164,17 @@ export type ClaimRewardsProps = {
   gasConfig: GasConfig;
 };
 
+export type Signer = {
+  publicKey: string;
+  address: string;
+};
+
 export type BuildTxAtomParams<T> = {
   account: Account;
   params: T[];
   gasConfig: GasConfig;
   memo?: string;
+  signer?: Signer;
 };
 
 export type SortOptions = "asc" | "desc" | undefined;
@@ -304,6 +317,10 @@ export const ibcTransferTypes: Array<keyof AllTransferStages> = [
   "IbcToShielded",
 ] as const;
 
+export const allTransferTypes = [
+  ...ibcTransferTypes.concat(transparentTransferTypes),
+] as const;
+
 type NamadaTransferStages = typeof namadaTransferStages;
 type IbcTransferStages = typeof ibcTransferStages;
 export type AllTransferStages = typeof allTransferStages;
@@ -344,6 +361,7 @@ export type BaseTransferTransaction = TransferStage & {
   errorMessage?: string;
   memo?: string;
   status: MutationStatus;
+  shielded?: boolean;
   createdAt: Date;
   updatedAt: Date;
 };

@@ -1,6 +1,6 @@
 import { SigningStargateClient } from "@cosmjs/stargate";
 import { useQuery, UseQueryResult } from "@tanstack/react-query";
-import { simulateIbcTransferFee } from "atoms/integrations";
+import { simulateIbcTransferGas } from "atoms/integrations";
 import BigNumber from "bignumber.js";
 import { getIbcGasConfig } from "integrations/utils";
 import invariant from "invariant";
@@ -35,27 +35,37 @@ export const useSimulateIbcTransferFee = ({
     ],
     retry: false,
     queryFn: async () => {
-      const MASP_MEMO_LENGTH = 2356;
-      const transferMsg = createIbcTransferMessage(
-        sanitizeChannel(channel!),
-        // We can't mock sourceAddress because the simulate function requires
-        // a valid address with funds
-        sanitizeAddress(sourceAddress!),
-        sanitizeChannel(sourceAddress!),
-        new BigNumber(1),
-        selectedAsset?.asset.base || registry?.assets.assets[0].base || "",
-        isShieldedTransfer ? "0".repeat(MASP_MEMO_LENGTH) : ""
-      );
+      try {
+        const MASP_MEMO_LENGTH = 2356;
+        const transferMsg = createIbcTransferMessage(
+          sanitizeChannel(channel!),
+          // We can't mock sourceAddress because the simulate function requires
+          // a valid address with funds
+          sanitizeAddress(sourceAddress!),
+          sanitizeAddress(sourceAddress!),
+          new BigNumber(1),
+          selectedAsset?.asset.base || registry?.assets.assets[0].base || "",
+          isShieldedTransfer ? "0".repeat(MASP_MEMO_LENGTH) : ""
+        );
 
-      const estimatedGas = await simulateIbcTransferFee(
-        stargateClient!,
-        sourceAddress!,
-        transferMsg
-      );
+        // We might need to tweak this value to get a more accurate gas estimation
+        // Also gas might vary before making the transaction, so we might check that.
+        const additionalPercentage = 1.1;
 
-      const gasConfig = getIbcGasConfig(registry!, estimatedGas);
-      invariant(gasConfig, "Error: invalid Gas config");
-      return gasConfig;
+        const estimatedGas =
+          (await simulateIbcTransferGas(
+            stargateClient!,
+            sourceAddress!,
+            transferMsg
+          )) * additionalPercentage;
+
+        const gasConfig = getIbcGasConfig(registry!, estimatedGas);
+        invariant(gasConfig, "Error: invalid Gas config");
+        return gasConfig;
+      } catch (err) {
+        console.error(err);
+        throw err;
+      }
     },
     enabled: Boolean(registry && stargateClient && sourceAddress && channel),
   });

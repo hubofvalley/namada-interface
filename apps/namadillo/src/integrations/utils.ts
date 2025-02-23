@@ -1,7 +1,11 @@
 import { Asset, Chain } from "@chain-registry/types";
 import { Bech32Config, ChainInfo, Currency } from "@keplr-wallet/types";
 import tokenImage from "App/Common/assets/token.svg";
-import { getRestApiAddressByIndex, getRpcByIndex } from "atoms/integrations";
+import {
+  getKnownChains,
+  getRestApiAddressByIndex,
+  getRpcByIndex,
+} from "atoms/integrations";
 import BigNumber from "bignumber.js";
 import { ChainId, ChainRegistryEntry, GasConfig } from "types";
 
@@ -27,11 +31,16 @@ export const findRegistryByChainId = (
   return undefined;
 };
 
-export const findAssetByDenom = (
-  registry: ChainRegistryEntry,
-  denom: string
-): Asset | undefined => {
-  return registry.assets.assets.find((asset) => asset.base === denom);
+export const findAssetByDenom = (denom: string): Asset | undefined => {
+  const chainRegistry = getKnownChains();
+  if (!chainRegistry) return undefined;
+
+  for (const registry of chainRegistry) {
+    const asset = registry.assets.assets.find((asset) => asset.base === denom);
+    if (asset) return asset;
+  }
+
+  return undefined;
 };
 
 export const getAssetImageUrl = (asset?: Asset): string => {
@@ -45,8 +54,10 @@ export const getIbcGasConfig = (
 ): GasConfig | undefined => {
   // TODO: some chains support multiple fee tokens - what should we do?
   const feeToken = registry.chain.fees?.fee_tokens?.[0];
-  if (typeof feeToken !== "undefined") {
-    const gasPrice =
+  const feeAsset = feeToken && findAssetByDenom(feeToken.denom);
+
+  if (typeof feeToken !== "undefined" && feeAsset) {
+    const gasPriceInBaseDenom =
       feeToken.average_gas_price ??
       feeToken.low_gas_price ??
       feeToken.fixed_min_gas_price ??
@@ -54,8 +65,9 @@ export const getIbcGasConfig = (
       feeToken.gas_costs?.ibc_transfer ??
       feeToken.gas_costs?.cosmos_send ??
       0;
+
     return {
-      gasPrice: BigNumber(gasPrice),
+      gasPriceInMinDenom: BigNumber(gasPriceInBaseDenom),
       gasLimit: BigNumber(gasLimit),
       gasToken: feeToken.denom,
     };

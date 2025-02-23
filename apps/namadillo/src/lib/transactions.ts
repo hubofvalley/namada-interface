@@ -23,7 +23,7 @@ import {
   TransferStep,
   TransferTransactionData,
 } from "types";
-import { toDisplayAmount } from "utils";
+import { isNamadaAsset, toDisplayAmount } from "utils";
 import { TransactionPair } from "./query";
 
 export const getEventAttribute = (
@@ -109,7 +109,8 @@ export const createTransferDataFromIbc = (
   rpc: string,
   asset: Asset,
   sourceChainId: string,
-  details: IbcTransferStage
+  details: IbcTransferStage,
+  isShieldedTx: boolean
 ): TransferTransactionData => {
   const transferAttributes = getEventAttribute(tx, "ibc_transfer");
   const packetAttributes = getEventAttribute(tx, "send_packet");
@@ -143,6 +144,7 @@ export const createTransferDataFromIbc = (
     status: "pending",
     sourcePort: "transfer",
     chainId: sourceChainId,
+    shielded: isShieldedTx,
     currentStep: TransferStep.WaitingConfirmation,
     destinationChainId: namada.chainId, //TODO: integrate with registry,
     sourceAddress: getAttributeValue(transferAttributes, "sender"),
@@ -163,6 +165,7 @@ export const createTransferDataFromNamada = (
   txKind: NamadaTransferTxKind,
   asset: Asset,
   rpcUrl: string,
+  isShieldedTx: boolean,
   txResponse?:
     | TransactionPair<TransparentTransferMsgValue>
     | TransactionPair<ShieldedTransferMsgValue>
@@ -180,12 +183,26 @@ export const createTransferDataFromNamada = (
   }
 
   return propsList
-    .map(({ data }) => {
-      return data.map((props) => {
-        const sourceAddress = "source" in props ? (props.source as string) : "";
+    .map((wrapperProps) => {
+      return wrapperProps.data.map((innerProps) => {
+        const sourceAddress =
+          "source" in wrapperProps ? wrapperProps.source
+          : "source" in innerProps ? innerProps.source
+          : "";
+
         const destinationAddress =
-          "target" in props ? (props.target as string) : "";
-        const amount = "amount" in props ? props.amount : new BigNumber(0);
+          "target" in wrapperProps ? wrapperProps.target
+          : "target" in innerProps ? innerProps.target
+          : "";
+
+        const baseAmount =
+          "amount" in innerProps ? innerProps.amount : new BigNumber(0);
+
+        const displayAmount =
+          isNamadaAsset(asset) ? baseAmount : (
+            toDisplayAmount(asset, baseAmount)
+          );
+
         return {
           type: txKind,
           currentStep: getTxNextStep(txKind, TransferStep.Sign),
@@ -194,7 +211,8 @@ export const createTransferDataFromNamada = (
           asset,
           memo,
           rpc: rpcUrl,
-          displayAmount: amount,
+          shielded: isShieldedTx,
+          displayAmount,
           chainId: txResponse?.encodedTxData.txs[0]?.args.chainId ?? "",
           hash: txResponse?.encodedTxData.txs[0].hash,
           feePaid: txResponse?.encodedTxData.txs[0].args.feeAmount,

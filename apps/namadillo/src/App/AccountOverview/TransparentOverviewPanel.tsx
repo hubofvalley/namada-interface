@@ -12,9 +12,10 @@ import { params, routes } from "App/routes";
 import { TokenBalance, transparentTokensAtom } from "atoms/balance/atoms";
 import { getTotalDollar } from "atoms/balance/functions";
 import { applicationFeaturesAtom } from "atoms/settings";
+import BigNumber from "bignumber.js";
 import { getAssetImageUrl } from "integrations/utils";
 import { useAtomValue } from "jotai";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { IoSwapHorizontal } from "react-icons/io5";
 import { TbVectorTriangle } from "react-icons/tb";
 import { Link } from "react-router-dom";
@@ -48,6 +49,7 @@ const TransparentTokensTable = ({
         <div
           key={`token-${originalAddress}`}
           className="flex items-center gap-4"
+          title={originalAddress}
         >
           <div className="aspect-square w-8 h-8">
             {icon ?
@@ -72,12 +74,14 @@ const TransparentTokensTable = ({
           key={`buttons-${originalAddress}`}
           className="flex items-center justify-end gap-1"
         >
-          <ActionButton
-            size="xs"
-            href={`${routes.maspShield}?${params.asset}=${originalAddress}`}
-          >
-            Shield
-          </ActionButton>
+          {(!isNam || namTransfersEnabled) && (
+            <ActionButton
+              size="xs"
+              href={`${routes.maspShield}?${params.asset}=${originalAddress}`}
+            >
+              Shield
+            </ActionButton>
+          )}
           {isNam && (
             <ActionButton
               size="xs"
@@ -168,7 +172,7 @@ const PanelContent = ({ data }: { data: TokenBalance[] }): JSX.Element => {
       <div className="grid md:grid-cols-2 gap-2">
         {[
           {
-            title: "Total Transparent Asset Balance",
+            title: "Total Transparent Asset Value",
             amount: getTotalDollar(data),
             button: (
               <ActionButton size="xs" href={routes.maspShield}>
@@ -177,7 +181,7 @@ const PanelContent = ({ data }: { data: TokenBalance[] }): JSX.Element => {
             ),
           },
           {
-            title: "Transparent NAM Balance",
+            title: "Transparent NAM Value",
             amount: namBalance?.dollar,
             namAmount: namBalance?.amount,
             button: (
@@ -195,9 +199,7 @@ const PanelContent = ({ data }: { data: TokenBalance[] }): JSX.Element => {
             <div className="flex-1 overflow-auto">
               <div className="text-sm">{title}</div>
               <div className="text-2xl sm:text-3xl whitespace-nowrap overflow-auto">
-                {amount ?
-                  <FiatCurrency amount={amount} />
-                : "N/A"}
+                <FiatCurrency amount={amount ?? new BigNumber(0)} />
               </div>
               {namAmount && namBalance && (
                 <TokenCurrency
@@ -219,6 +221,11 @@ const PanelContent = ({ data }: { data: TokenBalance[] }): JSX.Element => {
 export const TransparentOverviewPanel = (): JSX.Element => {
   const transparentTokensQuery = useAtomValue(transparentTokensAtom);
 
+  const nonZeroTransparentTokens = useMemo(() => {
+    if (!transparentTokensQuery.data) return [];
+    return transparentTokensQuery.data.filter((i) => i.amount.gt(0));
+  }, [transparentTokensAtom]);
+
   return (
     <Panel className="min-h-[300px] flex flex-col" title="Transparent Overview">
       {transparentTokensQuery.isPending ?
@@ -229,7 +236,7 @@ export const TransparentOverviewPanel = (): JSX.Element => {
           containerProps={{ className: "pb-16" }}
         >
           {transparentTokensQuery.data?.length ?
-            <PanelContent data={transparentTokensQuery.data} />
+            <PanelContent data={nonZeroTransparentTokens} />
           : <div className="bg-neutral-900 p-6 rounded-sm text-center font-medium my-14">
               You currently hold no assets in your unshielded account
             </div>

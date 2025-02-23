@@ -13,7 +13,6 @@ import { useAtomValue } from "jotai";
 import { IoClose } from "react-icons/io5";
 import { twMerge } from "tailwind-merge";
 import { GasConfig } from "types";
-import { unknownAsset } from "utils/assets";
 import { getDisplayGasFee } from "utils/gas";
 import { FiatCurrency } from "./FiatCurrency";
 import { TokenCurrency } from "./TokenCurrency";
@@ -34,6 +33,7 @@ const useBuildGasOption = ({
   gasPriceTable: GasPriceTable | undefined;
 }) => {
   const chainAssetsMap = useAtomValue(chainAssetsMapAtom);
+
   const gasDollarMap =
     useAtomValue(
       tokenPricesFamily(gasPriceTable?.map((item) => item.token) ?? [])
@@ -54,22 +54,21 @@ const useBuildGasOption = ({
       ...override,
     };
 
-    const displayAmount = getDisplayGasFee(option);
+    const displayGasFee = getDisplayGasFee(option, chainAssetsMap);
+    const { totalDisplayAmount: displayAmount, asset } = displayGasFee;
+    const { symbol } = asset;
+
     const price = gasDollarMap[option.gasToken];
     const dollar = price ? price.multipliedBy(displayAmount) : undefined;
-
     const selected =
       !gasConfig.gasLimit.isEqualTo(0) &&
       option.gasLimit.isEqualTo(gasConfig.gasLimit) &&
-      option.gasPrice.isEqualTo(gasConfig.gasPrice) &&
+      option.gasPriceInMinDenom.isEqualTo(gasConfig.gasPriceInMinDenom) &&
       option.gasToken === gasConfig.gasToken;
 
     const disabled =
-      gasConfig.gasLimit.isEqualTo(0) || gasConfig.gasPrice.isEqualTo(0);
-
-    const asset =
-      chainAssetsMap[option.gasToken] ?? unknownAsset(option.gasToken);
-    const symbol = asset.symbol;
+      gasConfig.gasLimit.isEqualTo(0) ||
+      gasConfig.gasPriceInMinDenom.isEqualTo(0);
 
     return {
       option,
@@ -177,19 +176,25 @@ export const GasFeeModal = ({
             ),
           }}
           arrowContainerProps={{ className: "right-4" }}
-          listContainerProps={{ className: "w-full mt-2 border border-white" }}
+          listContainerProps={{
+            className:
+              "w-full mt-2 border border-white max-h-[300px] overflow-y-auto",
+          }}
           listItemProps={{ className: "border-0 px-2 -mx-2 rounded-sm" }}
           onChange={(e) => onChangeGasToken(e.target.value)}
           options={
             gasPriceTable?.sort(sortByNativeToken).map((item) => {
               const { symbol, displayAmount, dollar } = buildGasOption({
-                gasPrice: item.gasPrice,
+                gasPriceInMinDenom: item.gasPrice,
                 gasToken: item.token,
               });
               return {
                 id: item.token,
                 value: (
-                  <div className="flex items-center justify-between w-full min-h-[42px] mr-5">
+                  <div
+                    title={item.token}
+                    className="flex items-center justify-between w-full min-h-[42px] mr-5"
+                  >
                     <div className="text-base">{symbol}</div>
                     <div className="text-right">
                       {dollar && <FiatCurrency amount={dollar} />}
