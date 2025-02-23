@@ -1,0 +1,11 @@
+NODE_ENV=development
+NAMADA_INTERFACE_LOCAL=false
+NAMADA_INTERFACE_NAMADA_ALIAS=Namada-Mainnet
+NAMADA_INTERFACE_NAMADA_TOKEN=NAM
+NAMADA_INTERFACE_NAMADA_CHAIN_ID=namada.5f5de2dd1b88cba30586420
+NAMADA_INTERFACE_NAMADA_URL=https://valley-of-namadillo.grandvalleys.com
+RPC_URL=https://lightnode-rpc-mainnet-namada.grandvalleys.com
+NAMADA_INTERFACE_NAMADA_BECH32_PREFIX=tnam
+NAMADA_INTERFACE_INDEXER_URL=https://indexer-mainnet-namada.grandvalleys.com
+INDEXER_URL=https://indexer-mainnet-namada.grandvalleys.com
+MASP_INDEXER_URL=https://masp-indexer-mainnet-namada.grandvalleys.com
