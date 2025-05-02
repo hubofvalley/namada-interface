@@ -34,6 +34,40 @@
 * Move optional value to end of schema, no empty memo ([#1379](https://github.com/anoma/namada-interface/issues/1379)) ([ee49600](https://github.com/anoma/namada-interface/commit/ee496001aad9291e3bb224f91ac5caf31a1143db))
 * Replace tally type with two fifths ([#1252](https://github.com/anoma/namada-interface/issues/1252)) ([785d9ad](https://github.com/anoma/namada-interface/commit/785d9ad5d6cf7d7abab53ae9cf812fbbfa84b0f7))
 
+## [0.7.0](https://github.com/hubofvalley/namada-interface/compare/types@v0.6.0...types@v0.7.0) (2025-05-02)
+
+
+### Features
+
+* Add balance to masp overview ([#1169](https://github.com/hubofvalley/namada-interface/issues/1169)) ([38754bf](https://github.com/hubofvalley/namada-interface/commit/38754bf0e621a955837cb89d07a583b60f9614bf))
+* Add namadillo disconnect button ([#1092](https://github.com/hubofvalley/namada-interface/issues/1092)) ([089b59b](https://github.com/hubofvalley/namada-interface/commit/089b59b219a63283efbb11b5d43e0283f32a8160))
+* Add the switch account button ([#1051](https://github.com/hubofvalley/namada-interface/issues/1051)) ([bfc42c3](https://github.com/hubofvalley/namada-interface/commit/bfc42c3ff323a6dee24a91e56f5d2269f96ea8fa))
+* Begin integration of IBC with transfer module ([#1162](https://github.com/hubofvalley/namada-interface/issues/1162)) ([08c7e2d](https://github.com/hubofvalley/namada-interface/commit/08c7e2d9186809629abe64741d1a7970b5855958))
+* Bump keychain version, update type docs ([#1363](https://github.com/hubofvalley/namada-interface/issues/1363)) ([eece967](https://github.com/hubofvalley/namada-interface/commit/eece96730099ba0d4f5f506c5b4cd2520c82e198))
+* Enable IBC withdrawals for all tokens ([#1243](https://github.com/hubofvalley/namada-interface/issues/1243)) ([14106eb](https://github.com/hubofvalley/namada-interface/commit/14106eba676c38cc3fee379221359557c5758da2))
+* Extension - Add view and import Spending Key ([#1744](https://github.com/hubofvalley/namada-interface/issues/1744)) ([8306f47](https://github.com/hubofvalley/namada-interface/commit/8306f47aefc51bb4da1f5466637f3697ef87dcbf))
+* Force bond in the claim and stake flow ([#1370](https://github.com/hubofvalley/namada-interface/issues/1370)) ([a640415](https://github.com/hubofvalley/namada-interface/commit/a640415a25e7b5b74cf6c37644f81b94b3c56911))
+* Ibc unshielding ([#1920](https://github.com/hubofvalley/namada-interface/issues/1920)) ([2996391](https://github.com/hubofvalley/namada-interface/commit/29963912650c4401cb09163042fb889986e094f6))
+* Keychain - Display chain name for known chains ([#1968](https://github.com/hubofvalley/namada-interface/issues/1968)) ([ab902e5](https://github.com/hubofvalley/namada-interface/commit/ab902e51564d24c238f1b7b0c0e6ad067decc9e5))
+* Keychain/Namadillo: Payment Address gen ([#1905](https://github.com/hubofvalley/namada-interface/issues/1905)) ([200bd4b](https://github.com/hubofvalley/namada-interface/commit/200bd4b400e36b5b216dc5a2facbe92c56c56b0b))
+* Namadillo - Improve gasLimit error ([#1977](https://github.com/hubofvalley/namada-interface/issues/1977)) ([b965e07](https://github.com/hubofvalley/namada-interface/commit/b965e071b0b3c54b5081a008ae9e08da8680ebdc))
+* Post-release bumps, changelogs ([#1364](https://github.com/hubofvalley/namada-interface/issues/1364)) ([a2f3f5c](https://github.com/hubofvalley/namada-interface/commit/a2f3f5cd54ff4bf905b385dc58a9c5d44c2c4ba4))
+* SDK - Add lookup for TxResponse result codes ([#1946](https://github.com/hubofvalley/namada-interface/issues/1946)) ([54e2562](https://github.com/hubofvalley/namada-interface/commit/54e2562627c3ffbedcd551d42440872d7a8ead18))
+* Shield nam ([#1165](https://github.com/hubofvalley/namada-interface/issues/1165)) ([e6b5530](https://github.com/hubofvalley/namada-interface/commit/e6b55307c77312a3bdde192ec721d5e84883d4ba))
+* Unshield + shielded transfers + disposable gas payer ([#1191](https://github.com/hubofvalley/namada-interface/issues/1191)) ([e8f0b39](https://github.com/hubofvalley/namada-interface/commit/e8f0b39452f0b7fac583ee7cb5812409378cfcd0))
+* Update docs in SDK & types ([#1472](https://github.com/hubofvalley/namada-interface/issues/1472)) ([dbcef4f](https://github.com/hubofvalley/namada-interface/commit/dbcef4fa19f0373ae7a328e5c30e1e4dab2b599d))
+* Update Keychain for new modified-zip32 ([#1624](https://github.com/hubofvalley/namada-interface/issues/1624)) ([b19caae](https://github.com/hubofvalley/namada-interface/commit/b19caae391b0411f51ee9b48325eeb62d421e7d3))
+* Update proposal statuses to include executed ([#1904](https://github.com/hubofvalley/namada-interface/issues/1904)) ([843db28](https://github.com/hubofvalley/namada-interface/commit/843db287525e88fb1886ca61414c0b2afe654b82))
+* Vks birthdays ([#1415](https://github.com/hubofvalley/namada-interface/issues/1415)) ([294031d](https://github.com/hubofvalley/namada-interface/commit/294031d8c7bf53c56fc81404b46d6c63ce13b651))
+
+
+### Bug Fixes
+
+* Decode continuous pgf proposal to ibc target ([#1397](https://github.com/hubofvalley/namada-interface/issues/1397)) ([1faf1f6](https://github.com/hubofvalley/namada-interface/commit/1faf1f685b629e336f6a0aec1d88e6b06029a39e))
+* Move optional value to end of schema, no empty memo ([#1379](https://github.com/hubofvalley/namada-interface/issues/1379)) ([ee49600](https://github.com/hubofvalley/namada-interface/commit/ee496001aad9291e3bb224f91ac5caf31a1143db))
+* Proposals checksums and data download ([#1721](https://github.com/hubofvalley/namada-interface/issues/1721)) ([e942a75](https://github.com/hubofvalley/namada-interface/commit/e942a7578e4d8b17898e7c68599883eaa943bde8))
+* Replace tally type with two fifths ([#1252](https://github.com/hubofvalley/namada-interface/issues/1252)) ([785d9ad](https://github.com/hubofvalley/namada-interface/commit/785d9ad5d6cf7d7abab53ae9cf812fbbfa84b0f7))
+
 ## [0.6.0](https://github.com/anoma/namada-interface/compare/types@v0.5.0...types@v0.6.0) (2025-04-17)
 
 
