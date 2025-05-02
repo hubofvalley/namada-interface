@@ -1,33 +1,46 @@
 import { Asset, Chain } from "@chain-registry/types";
-import { IbcTransferMsgValue } from "@namada/types";
+import { AccountType, IbcTransferMsgValue } from "@namada/types";
 import { mapUndefined } from "@namada/utils";
-import { routes } from "App/routes";
+import { params, routes } from "App/routes";
 import {
   OnSubmitTransferParams,
   TransferModule,
 } from "App/Transfer/TransferModule";
-import { defaultAccountAtom } from "atoms/accounts";
-import { namadaTransparentAssetsAtom } from "atoms/balance";
-import { chainAtom } from "atoms/chain";
 import {
-  availableChainsAtom,
-  chainRegistryAtom,
-  createIbcTxAtom,
+  allDefaultAccountsAtom,
+  defaultAccountAtom,
+  disposableSignerAtom,
+} from "atoms/accounts";
+import {
+  namadaShieldedAssetsAtom,
+  namadaTransparentAssetsAtom,
+} from "atoms/balance";
+import { chainAtom, chainTokensAtom } from "atoms/chain";
+import {
+  getDenomFromIbcTrace,
   ibcChannelsFamily,
+  searchChainByDenom,
 } from "atoms/integrations";
+import { ledgerStatusDataAtom } from "atoms/ledger";
+import { createIbcTxAtom } from "atoms/transfer/atoms";
+import {
+  clearDisposableSigner,
+  persistDisposableSigner,
+} from "atoms/transfer/services";
 import BigNumber from "bignumber.js";
 import { useTransaction } from "hooks/useTransaction";
 import { useTransactionActions } from "hooks/useTransactionActions";
+import { useUrlState } from "hooks/useUrlState";
 import { useWalletManager } from "hooks/useWalletManager";
 import { wallets } from "integrations";
 import { KeplrWalletManager } from "integrations/Keplr";
 import invariant from "invariant";
-import { useAtomValue } from "jotai";
+import { useAtom, useAtomValue } from "jotai";
 import { TransactionPair } from "lib/query";
 import { useEffect, useState } from "react";
 import { generatePath, useNavigate } from "react-router-dom";
 import namadaChainRegistry from "registry/namada.json";
-import { Address, IbcTransferTransactionData, TransferStep } from "types";
+import { IbcTransferTransactionData, TransferStep } from "types";
 import {
   toBaseAmount,
   toDisplayAmount,
@@ -38,14 +51,21 @@ import { IbcTopHeader } from "./IbcTopHeader";
 const defaultChainId = "cosmoshub-4";
 const keplr = new KeplrWalletManager();
 
-export const IbcWithdraw: React.FC = () => {
-  const namadaAccount = useAtomValue(defaultAccountAtom);
-  const chainRegistry = useAtomValue(chainRegistryAtom);
-  const availableChains = useAtomValue(availableChainsAtom);
+export const IbcWithdraw = (): JSX.Element => {
+  const defaultAccounts = useAtomValue(allDefaultAccountsAtom);
+  const shieldedAccount = defaultAccounts.data?.find(
+    (account) => account.type === AccountType.ShieldedKeys
+  );
+  const transparentAccount = useAtomValue(defaultAccountAtom);
   const namadaChain = useAtomValue(chainAtom);
+  const [ledgerStatus, setLedgerStatusStop] = useAtom(ledgerStatusDataAtom);
 
   const [generalErrorMessage, setGeneralErrorMessage] = useState("");
-  const [selectedAssetAddress, setSelectedAssetAddress] = useState<Address>();
+  const [selectedAssetAddress, setSelectedAssetAddress] = useUrlState(
+    params.asset
+  );
+  const [shielded, setShielded] = useState<boolean>(true);
+  const [refundTarget, setRefundTarget] = useState<string>();
   const [amount, setAmount] = useState<BigNumber | undefined>();
   const [customAddress, setCustomAddress] = useState<string>("");
   const [sourceChannel, setSourceChannel] = useState("");
@@ -53,45 +73,70 @@ export const IbcWithdraw: React.FC = () => {
   const [statusExplanation, setStatusExplanation] = useState("");
   const [completedAt, setCompletedAt] = useState<Date | undefined>();
   const [txHash, setTxHash] = useState<string | undefined>();
+  const [destinationChain, setDestinationChain] = useState<Chain | undefined>();
+  const { refetch: genDisposableSigner } = useAtomValue(disposableSignerAtom);
 
-  const { data: availableAssets } = useAtomValue(namadaTransparentAssetsAtom);
+  const chainTokens = useAtomValue(chainTokensAtom);
+
+  const { data: availableAssets, isLoading: isLoadingAssets } = useAtomValue(
+    shielded ? namadaShieldedAssetsAtom : namadaTransparentAssetsAtom
+  );
+
   const { storeTransaction } = useTransactionActions();
   const navigate = useNavigate();
+
+  const ledgerAccountInfo = ledgerStatus && {
+    deviceConnected: ledgerStatus.connected,
+    errorMessage: ledgerStatus.errorMessage,
+  };
 
   const availableAmount = mapUndefined(
     (address) => availableAssets?.[address]?.amount,
     selectedAssetAddress
   );
 
-  const selectedAsset = mapUndefined(
-    (address) => availableAssets?.[address],
-    selectedAssetAddress
-  );
+  const selectedAsset =
+    selectedAssetAddress ? availableAssets?.[selectedAssetAddress] : undefined;
 
   const {
     walletAddress: keplrAddress,
     connectToChainId,
     chainId,
     registry,
+    loadWalletAddress,
   } = useWalletManager(keplr);
 
   const onChangeWallet = (): void => {
-    connectToChainId(chainId || defaultChainId);
+    if (registry) {
+      connectToChainId(registry.chain.chain_id);
+      return;
+    }
+    connectToChainId(defaultChainId);
   };
 
-  const onChangeChain = (chain: Chain): void => {
-    connectToChainId(chain.chain_id);
-  };
-
-  useTransactionEventListener("IbcWithdraw.Success", (e) => {
+  useTransactionEventListener("IbcWithdraw.Success", async (e) => {
     if (txHash && e.detail.hash === txHash) {
       setCompletedAt(new Date());
+      // We are clearing the disposable signer only if the transaction was successful on the target chain
+      if (shielded && refundTarget) {
+        await clearDisposableSigner(refundTarget);
+      }
     }
   });
 
   const redirectToTimeline = (): void => {
     if (txHash) {
       navigate(generatePath(routes.transaction, { hash: txHash }));
+    }
+  };
+
+  const updateDestinationChainAndAddress = (chain: Chain | undefined): void => {
+    setDestinationChain(chain);
+    if (customAddress) {
+      setCustomAddress("");
+    }
+    if (chain) {
+      loadWalletAddress(chain?.chain_id);
     }
   };
 
@@ -105,6 +150,29 @@ export const IbcWithdraw: React.FC = () => {
     setSourceChannel(ibcChannels?.namadaChannel || "");
   }, [ibcChannels]);
 
+  // Search for original chain. We don't want to enable users to transfer Namada assets
+  // to other chains different than the original one. Ex: OSMO should only be withdrew to Osmosis,
+  // ATOM to Cosmoshub, etc.
+  useEffect(() => {
+    if (!selectedAsset || !chainTokens.data) {
+      updateDestinationChainAndAddress(undefined);
+      return;
+    }
+
+    const token = chainTokens.data.find(
+      (token) => token.address === selectedAsset.originalAddress
+    );
+
+    if (token && "trace" in token) {
+      const denom = getDenomFromIbcTrace(token.trace);
+      const chain = searchChainByDenom(denom);
+      updateDestinationChainAndAddress(chain);
+      return;
+    }
+
+    updateDestinationChainAndAddress(undefined);
+  }, [selectedAsset, chainTokens.data]);
+
   const {
     execute: performWithdraw,
     feeProps,
@@ -115,6 +183,7 @@ export const IbcWithdraw: React.FC = () => {
     eventType: "IbcTransfer",
     createTxAtom: createIbcTxAtom,
     params: [],
+    useDisposableSigner: shielded,
     parsePendingTxNotification: () => ({
       title: "IBC withdrawal transaction in progress",
       description: "Your IBC transaction is being processed",
@@ -129,7 +198,16 @@ export const IbcWithdraw: React.FC = () => {
     onBeforeSign: () => {
       setCurrentStatus("Waiting for signature...");
     },
-    onBeforeBroadcast: () => {
+    onBeforeBroadcast: async (tx) => {
+      const props = tx.encodedTxData.meta?.props[0];
+      if (shielded && props) {
+        const refundTarget = props.refundTarget;
+        invariant(refundTarget, "Refund target is not provided");
+
+        await persistDisposableSigner(refundTarget);
+        setRefundTarget(refundTarget);
+      }
+
       setCurrentStatus("Broadcasting transaction to Namada...");
     },
     onBroadcasted: (tx) => {
@@ -154,10 +232,17 @@ export const IbcWithdraw: React.FC = () => {
       );
       setTxHash(ibcTxData.hash);
     },
-    onError: (err) => {
+    onError: async (err, context) => {
       setGeneralErrorMessage(String(err));
       setCurrentStatus("");
       setStatusExplanation("");
+
+      // Clear disposable signer if the transaction failed on Namada side
+      // We do not want to clear the disposable signer if the transaction failed on the target chain
+      const refundTarget = context?.encodedTxData.meta?.props[0].refundTarget;
+      if (shielded && refundTarget) {
+        await clearDisposableSigner(refundTarget);
+      }
     },
   });
 
@@ -182,7 +267,7 @@ export const IbcWithdraw: React.FC = () => {
       destinationChainId,
       memo: tx.encodedTxData.wrapperTxProps.memo || props.memo,
       displayAmount,
-      shielded: false,
+      shielded,
       sourceAddress: props.source,
       sourceChannel: props.channelId,
       destinationAddress: props.receiver,
@@ -204,65 +289,86 @@ export const IbcWithdraw: React.FC = () => {
     invariant(sourceChannel, "No channel ID is set");
     invariant(chainId, "No chain is selected");
     invariant(keplrAddress, "No address is selected");
+    invariant(shieldedAccount, "No shielded account is found");
+    invariant(transparentAccount.data, "No transparent account is found");
 
     const amountInBaseDenom = toBaseAmount(selectedAsset.asset, displayAmount);
-    await performWithdraw({
-      params: [
-        {
-          amountInBaseDenom,
-          channelId: sourceChannel.trim(),
-          portId: "transfer",
-          token: selectedAsset.originalAddress,
-          source: keplrAddress,
-          receiver: destinationAddress,
-          memo,
+    const source =
+      shielded ?
+        shieldedAccount.pseudoExtendedKey!
+      : transparentAccount.data.address;
+    const gasSpendingKey =
+      shielded ? shieldedAccount.pseudoExtendedKey : undefined;
+
+    const refundTarget =
+      shielded ? (await genDisposableSigner()).data?.address : undefined;
+
+    setLedgerStatusStop(true);
+    try {
+      await performWithdraw({
+        signer: {
+          publicKey: transparentAccount.data.publicKey!,
+          address: transparentAccount.data.address!,
         },
-      ],
-    });
+        params: [
+          {
+            amountInBaseDenom,
+            channelId: sourceChannel.trim(),
+            portId: "transfer",
+            token: selectedAsset.originalAddress,
+            source,
+            receiver: destinationAddress,
+            gasSpendingKey,
+            memo,
+            refundTarget,
+          },
+        ],
+      });
+    } finally {
+      setLedgerStatusStop(false);
+    }
   };
 
   const requiresIbcChannels = !isLoadingIbcChannels && unknownIbcChannels;
 
   return (
     <div className="relative min-h-[600px]">
-      <header className="flex flex-col items-center text-center mb-3 gap-6">
-        <IbcTopHeader type="namToIbc" isShielded={false} />
-        <div className="max-w-[360px] mx-auto mb-3">
-          <h2 className="mb-1 text-lg font-light">
-            Withdraw assets from Namada via IBC
-          </h2>
-          <p className="text-sm font-light leading-tight">
-            To withdraw shielded assets please unshield them to your transparent
-            account
-          </p>
-        </div>
+      <header className="flex flex-col items-center text-center mb-10 gap-6">
+        <IbcTopHeader type="namToIbc" isShielded={shielded} />
+        <h2 className="text-lg">Withdraw assets from Namada via IBC</h2>
       </header>
       <TransferModule
         source={{
+          isLoadingAssets,
           wallet: wallets.namada,
-          walletAddress: namadaAccount.data?.address,
+          walletAddress:
+            shielded ?
+              shieldedAccount?.address
+            : transparentAccount.data?.address,
           chain: namadaChainRegistry as Chain,
-          isShielded: false,
+          isShieldedAddress: shielded,
+          availableChains: [namadaChainRegistry as Chain],
           availableAssets,
           availableAmount,
           selectedAssetAddress,
           onChangeSelectedAsset: setSelectedAssetAddress,
+          onChangeShielded: setShielded,
           amount,
           onChangeAmount: setAmount,
+          ledgerAccountInfo,
         }}
         destination={{
           wallet: wallets.keplr,
           walletAddress: keplrAddress,
           availableWallets: [wallets.keplr],
-          availableChains,
           enableCustomAddress: true,
           customAddress,
           onChangeCustomAddress: setCustomAddress,
-          chain: mapUndefined((id) => chainRegistry[id]?.chain, chainId),
+          chain: destinationChain,
           onChangeWallet,
-          onChangeChain,
-          isShielded: false,
+          isShieldedAddress: false,
         }}
+        isShieldedTx={shielded}
         errorMessage={generalErrorMessage || error?.message || ""}
         currentStatus={currentStatus}
         currentStatusExplanation={statusExplanation}

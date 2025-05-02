@@ -35,31 +35,16 @@ export const gasEstimateFamily = atomFamily(
               totalEstimates: 0,
             };
           }
-          const counter = (kind: TxKind): number | undefined =>
-            txKinds.filter((i) => i === kind).length || undefined;
 
-          const gasEstimate = await fetchGasEstimate(api, [
-            counter("Bond"),
-            counter("ClaimRewards"),
-            counter("Unbond"),
-            counter("TransparentTransfer"),
-            counter("ShieldedTransfer"),
-            counter("ShieldingTransfer"),
-            counter("UnshieldingTransfer"),
-            counter("VoteProposal"),
-            counter("IbcTransfer"),
-            counter("Withdraw"),
-            counter("RevealPk"),
-            counter("Redelegate"),
-          ]);
-
-          // TODO: we need to improve this estimate API. Currently, gasEstimate.min returns
-          // the minimum gas limit ever used for a TX, and avg is failing in most of the transactions.
-          const newMin = gasEstimate.max;
+          const gasEstimate = await fetchGasEstimate(api, txKinds);
+          const precision = Math.max(
+            0,
+            Math.min(1, gasEstimate.totalEstimates / 1000)
+          );
           return {
-            min: newMin,
-            avg: Math.ceil(newMin * 1.25),
-            max: Math.ceil(newMin * 1.5),
+            min: Math.ceil(gasEstimate.min * 1.1 - precision * 0.1),
+            avg: Math.ceil(gasEstimate.avg * 1.25 - precision * 0.25),
+            max: Math.ceil(gasEstimate.max * 1.5 - precision * 0.5),
             totalEstimates: gasEstimate.totalEstimates,
           };
         },
@@ -76,17 +61,22 @@ export const gasPriceTableAtom = atomWithQuery<GasPriceTable>((get) => {
     queryKey: ["gas-price-table", chainAssetsMap],
     ...queryDependentFn(async () => {
       const response = await fetchTokensGasPrice(api);
-      return response.map(({ token, minDenomAmount }) => {
-        const asset = chainAssetsMap[token];
-        const baseAmount = BigNumber(minDenomAmount);
-        return {
-          token,
-          gasPrice:
-            asset && isNamadaAsset(asset) ?
-              toDisplayAmount(asset, baseAmount)
-            : baseAmount,
-        };
-      });
+      return (
+        response
+          // filter only tokens that exists on the chain
+          .filter(({ token }) => Boolean(chainAssetsMap[token]))
+          .map(({ token, minDenomAmount }) => {
+            const asset = chainAssetsMap[token];
+            const baseAmount = BigNumber(minDenomAmount);
+            return {
+              token,
+              gasPrice:
+                asset && isNamadaAsset(asset) ?
+                  toDisplayAmount(asset, baseAmount)
+                : baseAmount,
+            };
+          })
+      );
     }, []),
   };
 });

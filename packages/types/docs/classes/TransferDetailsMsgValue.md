@@ -35,7 +35,7 @@ shieldedSectionHash encoded as hex instead of Uint8Array
 
 #### Defined in
 
-[tx/schema/transfer.ts:205](https://github.com/anoma/namada-interface/blob/04cc0e2c5bbf957adca124841118cb1e5cb7bcab/packages/types/src/tx/schema/transfer.ts#L205)
+[packages/types/src/tx/schema/transfer.ts:240](https://github.com/anoma/namada-interface/blob/dedbae7e806a646649051a09499b31d03fef0091/packages/types/src/tx/schema/transfer.ts#L240)
 
 ___
 
@@ -45,7 +45,7 @@ ___
 
 #### Defined in
 
-[tx/schema/transfer.ts:199](https://github.com/anoma/namada-interface/blob/04cc0e2c5bbf957adca124841118cb1e5cb7bcab/packages/types/src/tx/schema/transfer.ts#L199)
+[packages/types/src/tx/schema/transfer.ts:234](https://github.com/anoma/namada-interface/blob/dedbae7e806a646649051a09499b31d03fef0091/packages/types/src/tx/schema/transfer.ts#L234)
 
 ___
 
@@ -55,4 +55,4 @@ ___
 
 #### Defined in
 
-[tx/schema/transfer.ts:202](https://github.com/anoma/namada-interface/blob/04cc0e2c5bbf957adca124841118cb1e5cb7bcab/packages/types/src/tx/schema/transfer.ts#L202)
+[packages/types/src/tx/schema/transfer.ts:237](https://github.com/anoma/namada-interface/blob/dedbae7e806a646649051a09499b31d03fef0091/packages/types/src/tx/schema/transfer.ts#L237)

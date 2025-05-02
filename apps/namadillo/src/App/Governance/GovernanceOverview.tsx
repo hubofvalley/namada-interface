@@ -1,4 +1,5 @@
 import { Panel, SkeletonLoading } from "@namada/components";
+import { NavigationFooter } from "App/AccountOverview/NavigationFooter";
 import { ConnectBanner } from "App/Common/ConnectBanner";
 import { PageWithSidebar } from "App/Common/PageWithSidebar";
 import { Sidebar } from "App/Layout/Sidebar";
@@ -11,6 +12,7 @@ import {
 import { useUserHasAccount } from "hooks/useIsAuthenticated";
 import { useAtomValue } from "jotai";
 import { AllProposalsTable } from "./AllProposalsTable";
+import { LearnAboutGovernance } from "./LearnAboutGovernance";
 import { LiveGovernanceProposals } from "./LiveGovernanceProposals";
 import { ProposalListPanel } from "./ProposalListPanel";
 import { ProposalsSummary } from "./ProposalsSummary";
@@ -75,6 +77,7 @@ export const GovernanceOverview: React.FC = () => {
             )}
           />
         </ProposalListPanel>
+        <NavigationFooter />
       </div>
       <Sidebar>
         <Panel>
@@ -85,6 +88,7 @@ export const GovernanceOverview: React.FC = () => {
             <ProposalsSummary allProposals={allProposals.data!} />
           )}
         </Panel>
+        <LearnAboutGovernance />
       </Sidebar>
     </PageWithSidebar>
   );

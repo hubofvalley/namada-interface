@@ -10,6 +10,7 @@
 
 ### Properties
 
+- [bparams](UnshieldingTransferMsgValue.md#bparams)
 - [data](UnshieldingTransferMsgValue.md#data)
 - [gasSpendingKey](UnshieldingTransferMsgValue.md#gasspendingkey)
 - [source](UnshieldingTransferMsgValue.md#source)
@@ -32,9 +33,19 @@
 
 #### Defined in
 
-[tx/schema/transfer.ts:153](https://github.com/anoma/namada-interface/blob/04cc0e2c5bbf957adca124841118cb1e5cb7bcab/packages/types/src/tx/schema/transfer.ts#L153)
+[packages/types/src/tx/schema/transfer.ts:176](https://github.com/anoma/namada-interface/blob/dedbae7e806a646649051a09499b31d03fef0091/packages/types/src/tx/schema/transfer.ts#L176)
 
 ## Properties
+
+### bparams
+
+• `Optional` **bparams**: [`BparamsMsgValue`](BparamsMsgValue.md)[]
+
+#### Defined in
+
+[packages/types/src/tx/schema/transfer.ts:174](https://github.com/anoma/namada-interface/blob/dedbae7e806a646649051a09499b31d03fef0091/packages/types/src/tx/schema/transfer.ts#L174)
+
+___
 
 ### data
 
@@ -42,7 +53,7 @@
 
 #### Defined in
 
-[tx/schema/transfer.ts:148](https://github.com/anoma/namada-interface/blob/04cc0e2c5bbf957adca124841118cb1e5cb7bcab/packages/types/src/tx/schema/transfer.ts#L148)
+[packages/types/src/tx/schema/transfer.ts:168](https://github.com/anoma/namada-interface/blob/dedbae7e806a646649051a09499b31d03fef0091/packages/types/src/tx/schema/transfer.ts#L168)
 
 ___
 
@@ -52,7 +63,7 @@ ___
 
 #### Defined in
 
-[tx/schema/transfer.ts:151](https://github.com/anoma/namada-interface/blob/04cc0e2c5bbf957adca124841118cb1e5cb7bcab/packages/types/src/tx/schema/transfer.ts#L151)
+[packages/types/src/tx/schema/transfer.ts:171](https://github.com/anoma/namada-interface/blob/dedbae7e806a646649051a09499b31d03fef0091/packages/types/src/tx/schema/transfer.ts#L171)
 
 ___
 
@@ -62,4 +73,4 @@ ___
 
 #### Defined in
 
-[tx/schema/transfer.ts:145](https://github.com/anoma/namada-interface/blob/04cc0e2c5bbf957adca124841118cb1e5cb7bcab/packages/types/src/tx/schema/transfer.ts#L145)
+[packages/types/src/tx/schema/transfer.ts:165](https://github.com/anoma/namada-interface/blob/dedbae7e806a646649051a09499b31d03fef0091/packages/types/src/tx/schema/transfer.ts#L165)

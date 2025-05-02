@@ -1,11 +1,11 @@
-import { DerivedAccount } from "@namada/types";
+import { AccountType, DerivedAccount } from "@namada/types";
 import { LoadingStatus } from "App/types";
 import {
   DeleteAccountMsg,
   GetActiveAccountMsg,
-  ParentAccount,
   RenameAccountMsg,
   RevealAccountMnemonicMsg,
+  RevealPrivateKeyMsg,
   SetActiveAccountMsg,
 } from "background/keyring";
 import { useRequester } from "hooks/useRequester";
@@ -32,10 +32,8 @@ type AccountContextType = {
   fetchAll: () => Promise<DerivedAccount[]>;
   getById: (accountId: string) => DerivedAccount | undefined;
   revealMnemonic: (accountId: string) => Promise<string>;
-  changeActiveAccountId: (
-    accountId: string,
-    accountType: ParentAccount
-  ) => void;
+  revealPrivateKey: (accountId: string) => Promise<string>;
+  changeActiveAccountId: (accountId: string, accountType: AccountType) => void;
 };
 
 // This initializer
@@ -45,15 +43,13 @@ const createAccountContext = (): AccountContextType => ({
   getById: (_accountId: string) => undefined,
   activeAccountId: undefined,
   revealMnemonic: async (_accountId: string) => "",
+  revealPrivateKey: async (_accountId: string) => "",
   error: "",
   status: undefined,
   remove: async (_accountId: string) => {},
   rename: async (_id: string, _alias: string) => undefined,
   fetchAll: async () => [],
-  changeActiveAccountId: (
-    _accountId: string,
-    _accountType: ParentAccount
-  ) => {},
+  changeActiveAccountId: (_accountId: string, _accountType: AccountType) => {},
 });
 
 export const AccountContext = createContext<AccountContextType>(
@@ -109,7 +105,7 @@ export const AccountContextWrapper = ({
     if (accountId === activeAccountId && parentAccounts.length > 1) {
       await changeActiveAccountId(
         parentAccounts[0].id,
-        parentAccounts[0].type as ParentAccount
+        parentAccounts[0].type as AccountType
       );
     }
 
@@ -144,7 +140,7 @@ export const AccountContextWrapper = ({
 
   const changeActiveAccountId = async (
     accountId: string,
-    accountType: ParentAccount
+    accountType: AccountType
   ): Promise<void> => {
     setActiveAccountId(accountId);
     await requester.sendMessage(
@@ -157,6 +153,13 @@ export const AccountContextWrapper = ({
     return await requester.sendMessage(
       Ports.Background,
       new RevealAccountMnemonicMsg(accountId)
+    );
+  };
+
+  const revealPrivateKey = async (accountId: string): Promise<string> => {
+    return await requester.sendMessage(
+      Ports.Background,
+      new RevealPrivateKeyMsg(accountId)
     );
   };
 
@@ -189,6 +192,7 @@ export const AccountContextWrapper = ({
         getById,
         changeActiveAccountId,
         revealMnemonic,
+        revealPrivateKey,
         rename,
       }}
     >

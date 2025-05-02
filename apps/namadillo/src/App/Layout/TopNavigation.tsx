@@ -1,9 +1,10 @@
 import { ActionButton } from "@namada/components";
+import { AccountType } from "@namada/types";
 import { ConnectExtensionButton } from "App/Common/ConnectExtensionButton";
-import { ShieldAssetsModal } from "App/Common/ShieldAssetsModal";
 import { TransactionInProgressSpinner } from "App/Common/TransactionInProgressSpinner";
 import { UnshieldAssetsModal } from "App/Common/UnshieldAssetsModal";
 import { routes } from "App/routes";
+import { defaultAccountAtom } from "atoms/accounts";
 import {
   applicationFeaturesAtom,
   signArbitraryEnabledAtom,
@@ -19,7 +20,6 @@ import { NamadaAccount } from "./NamadaAccount";
 import { SyncIndicator } from "./SyncIndicator";
 
 export const TopNavigation = (): JSX.Element => {
-  const [shieldingModalOpen, setShieldingModalOpen] = useState(false);
   const [unshieldingModalOpen, setUnshieldingModalOpen] = useState(false);
 
   const userHasAccount = useUserHasAccount();
@@ -27,13 +27,26 @@ export const TopNavigation = (): JSX.Element => {
   const { maspEnabled, namTransfersEnabled } = useAtomValue(
     applicationFeaturesAtom
   );
+  const defaultAccount = useAtomValue(defaultAccountAtom);
   const location = useLocation();
   const navigate = useNavigate();
 
   if (!userHasAccount) {
     return (
       <div className="w-fit justify-self-end">
-        <ConnectExtensionButton />
+        <div className="flex gap-6">
+          <button
+            className="text-2xl text-yellow hover:text-cyan"
+            onClick={() =>
+              navigate(routes.settings, {
+                state: { backgroundLocation: location },
+              })
+            }
+          >
+            <IoSettingsOutline />
+          </button>
+          <ConnectExtensionButton />
+        </div>
       </div>
     );
   }
@@ -45,7 +58,11 @@ export const TopNavigation = (): JSX.Element => {
           <ActionButton
             className="py-2"
             size="xs"
-            onClick={() => setShieldingModalOpen(true)}
+            onClick={() =>
+              navigate(routes.shieldAssets, {
+                state: { backgroundLocation: location },
+              })
+            }
           >
             Shield Assets
           </ActionButton>
@@ -84,19 +101,20 @@ export const TopNavigation = (): JSX.Element => {
       >
         <IoSettingsOutline />
       </button>
-      {signArbitraryEnabled && (
-        <button
-          className="text-2xl text-yellow hover:text-cyan"
-          title="Sign Message"
-          onClick={() =>
-            navigate(routes.signMessages, {
-              state: { backgroundLocation: location },
-            })
-          }
-        >
-          <AiOutlineMessage />
-        </button>
-      )}
+      {defaultAccount.data?.type !== AccountType.Ledger &&
+        signArbitraryEnabled && (
+          <button
+            className="text-2xl text-yellow hover:text-cyan"
+            title="Sign Message"
+            onClick={() =>
+              navigate(routes.signMessages, {
+                state: { backgroundLocation: location },
+              })
+            }
+          >
+            <AiOutlineMessage />
+          </button>
+        )}
 
       <TransactionInProgressSpinner />
       <SyncIndicator />
@@ -104,10 +122,6 @@ export const TopNavigation = (): JSX.Element => {
         <NamadaAccount />
         <KeplrAccount />
       </div>
-
-      {shieldingModalOpen && (
-        <ShieldAssetsModal onClose={() => setShieldingModalOpen(false)} />
-      )}
 
       {unshieldingModalOpen && (
         <UnshieldAssetsModal onClose={() => setUnshieldingModalOpen(false)} />

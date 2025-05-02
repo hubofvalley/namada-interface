@@ -7,7 +7,6 @@ import BigNumber from "bignumber.js";
 import clsx from "clsx";
 import { TransactionFeeProps } from "hooks/useTransactionFee";
 import { Address, WalletProvider } from "types";
-import ibcTransferImageWhite from "./assets/ibc-transfer-white.png";
 import { ConnectProviderButton } from "./ConnectProviderButton";
 import { CustomAddressForm } from "./CustomAddressForm";
 import { SelectedChain } from "./SelectedChain";
@@ -15,7 +14,8 @@ import { SelectedWallet } from "./SelectedWallet";
 import { TokenAmountCard } from "./TokenAmountCard";
 
 type TransferDestinationProps = {
-  isShielded?: boolean;
+  isShieldedAddress?: boolean;
+  isShieldedTx?: boolean;
   onChangeShielded?: (isShielded: boolean) => void;
   chain?: Chain;
   wallet?: WalletProvider;
@@ -26,7 +26,6 @@ type TransferDestinationProps = {
   feeProps?: TransactionFeeProps;
   changeFeeEnabled?: boolean;
   customAddressActive?: boolean;
-  isIbcTransfer?: boolean;
   isSubmitting?: boolean;
   destinationAsset?: Asset;
   amount?: BigNumber;
@@ -43,8 +42,8 @@ export const TransferDestination = ({
   chain,
   wallet,
   walletAddress,
-  isShielded,
-  isIbcTransfer,
+  isShieldedAddress,
+  isShieldedTx = false,
   onChangeShielded,
   gasDisplayAmount,
   gasAsset,
@@ -65,9 +64,10 @@ export const TransferDestination = ({
   return (
     <div
       className={clsx("relative bg-neutral-800 rounded-lg px-4 pt-8 pb-4", {
-        "border border-yellow transition-colors duration-200": isShielded,
+        "border border-yellow transition-colors duration-200":
+          isShieldedAddress,
         "border border-white transition-colors duration-200":
-          chain?.chain_name === "namada" && !isShielded,
+          chain?.chain_name === "namada" && !isShieldedAddress,
       })}
     >
       {!isSubmitting && (
@@ -75,7 +75,7 @@ export const TransferDestination = ({
           {onChangeShielded && chain?.chain_name === "namada" && (
             <nav className="mb-6">
               <TabSelector
-                active={isShielded ? "shielded" : "transparent"}
+                active={isShieldedAddress ? "shielded" : "transparent"}
                 items={[
                   {
                     id: "shielded",
@@ -88,7 +88,7 @@ export const TransferDestination = ({
                     className: "text-white",
                   },
                 ]}
-                onChange={() => onChangeShielded(!isShielded)}
+                onChange={() => onChangeShielded(!isShieldedAddress)}
               />
             </nav>
           )}
@@ -161,29 +161,32 @@ export const TransferDestination = ({
           <div className="flex justify-between items-center">
             <SelectedChain chain={chain} wallet={wallet} iconSize="36px" />
             {wallet && walletAddress && (
-              <SelectedWallet wallet={wallet} address={walletAddress} />
+              <SelectedWallet
+                wallet={wallet}
+                address={customAddressActive ? address : walletAddress}
+              />
             )}
           </div>
         </footer>
       )}
 
       {!isSubmitting && (
-        <footer className="mt-10">
-          <div className="flex justify-between items-center">
-            {isIbcTransfer ?
-              <img src={ibcTransferImageWhite} className="w-20" />
-            : <div />}
-            {changeFeeEnabled ?
-              feeProps && <TransactionFeeButton feeProps={feeProps} />
-            : gasDisplayAmount &&
-              gasAsset && (
-                <TransactionFee
-                  displayAmount={gasDisplayAmount}
-                  symbol={gasAsset.symbol}
-                />
-              )
-            }
-          </div>
+        <footer className="flex items-center mt-10">
+          {changeFeeEnabled ?
+            feeProps && (
+              <TransactionFeeButton
+                feeProps={feeProps}
+                isShieldedTransfer={isShieldedTx}
+              />
+            )
+          : gasDisplayAmount &&
+            gasAsset && (
+              <TransactionFee
+                displayAmount={gasDisplayAmount}
+                symbol={gasAsset.symbol}
+              />
+            )
+          }
         </footer>
       )}
     </div>

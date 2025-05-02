@@ -31,7 +31,7 @@
 
 #### Defined in
 
-[tx/schema/claimRewards.ts:12](https://github.com/anoma/namada-interface/blob/04cc0e2c5bbf957adca124841118cb1e5cb7bcab/packages/types/src/tx/schema/claimRewards.ts#L12)
+[packages/types/src/tx/schema/claimRewards.ts:12](https://github.com/anoma/namada-interface/blob/dedbae7e806a646649051a09499b31d03fef0091/packages/types/src/tx/schema/claimRewards.ts#L12)
 
 ## Properties
 
@@ -41,7 +41,7 @@
 
 #### Defined in
 
-[tx/schema/claimRewards.ts:10](https://github.com/anoma/namada-interface/blob/04cc0e2c5bbf957adca124841118cb1e5cb7bcab/packages/types/src/tx/schema/claimRewards.ts#L10)
+[packages/types/src/tx/schema/claimRewards.ts:10](https://github.com/anoma/namada-interface/blob/dedbae7e806a646649051a09499b31d03fef0091/packages/types/src/tx/schema/claimRewards.ts#L10)
 
 ___
 
@@ -51,4 +51,4 @@ ___
 
 #### Defined in
 
-[tx/schema/claimRewards.ts:7](https://github.com/anoma/namada-interface/blob/04cc0e2c5bbf957adca124841118cb1e5cb7bcab/packages/types/src/tx/schema/claimRewards.ts#L7)
+[packages/types/src/tx/schema/claimRewards.ts:7](https://github.com/anoma/namada-interface/blob/dedbae7e806a646649051a09499b31d03fef0091/packages/types/src/tx/schema/claimRewards.ts#L7)

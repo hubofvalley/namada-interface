@@ -34,7 +34,7 @@ Shielding Transfer schemas
 
 #### Defined in
 
-[tx/schema/transfer.ts:102](https://github.com/anoma/namada-interface/blob/04cc0e2c5bbf957adca124841118cb1e5cb7bcab/packages/types/src/tx/schema/transfer.ts#L102)
+[packages/types/src/tx/schema/transfer.ts:119](https://github.com/anoma/namada-interface/blob/dedbae7e806a646649051a09499b31d03fef0091/packages/types/src/tx/schema/transfer.ts#L119)
 
 ## Properties
 
@@ -44,7 +44,7 @@ Shielding Transfer schemas
 
 #### Defined in
 
-[tx/schema/transfer.ts:100](https://github.com/anoma/namada-interface/blob/04cc0e2c5bbf957adca124841118cb1e5cb7bcab/packages/types/src/tx/schema/transfer.ts#L100)
+[packages/types/src/tx/schema/transfer.ts:117](https://github.com/anoma/namada-interface/blob/dedbae7e806a646649051a09499b31d03fef0091/packages/types/src/tx/schema/transfer.ts#L117)
 
 ___
 
@@ -54,7 +54,7 @@ ___
 
 #### Defined in
 
-[tx/schema/transfer.ts:94](https://github.com/anoma/namada-interface/blob/04cc0e2c5bbf957adca124841118cb1e5cb7bcab/packages/types/src/tx/schema/transfer.ts#L94)
+[packages/types/src/tx/schema/transfer.ts:111](https://github.com/anoma/namada-interface/blob/dedbae7e806a646649051a09499b31d03fef0091/packages/types/src/tx/schema/transfer.ts#L111)
 
 ___
 
@@ -64,4 +64,4 @@ ___
 
 #### Defined in
 
-[tx/schema/transfer.ts:97](https://github.com/anoma/namada-interface/blob/04cc0e2c5bbf957adca124841118cb1e5cb7bcab/packages/types/src/tx/schema/transfer.ts#L97)
+[packages/types/src/tx/schema/transfer.ts:114](https://github.com/anoma/namada-interface/blob/dedbae7e806a646649051a09499b31d03fef0091/packages/types/src/tx/schema/transfer.ts#L114)

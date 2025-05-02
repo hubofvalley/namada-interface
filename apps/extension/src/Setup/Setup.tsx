@@ -11,7 +11,7 @@ import {
   Container,
   LifecycleExecutionWrapper as Wrapper,
 } from "@namada/components";
-import { Bip44Path, DerivedAccount, Zip32Path } from "@namada/types";
+import { AccountType, Bip44Path, Zip32Path } from "@namada/types";
 import { assertNever } from "@namada/utils";
 import { AccountSecret, AccountStore } from "background/keyring";
 import { AnimatePresence, motion } from "framer-motion";
@@ -84,7 +84,7 @@ export const Setup: React.FC = () => {
   });
 
   const [parentAccountStore, setParentAccountStore] = useState<AccountStore>();
-  const [shieldedAccount, setShieldedAccount] = useState<DerivedAccount>();
+  const [paymentAddress, setPaymentAddress] = useState<string>();
   const [completionStatus, setCompletionStatus] = useState<CompletionStatus>();
   const [completionStatusInfo, setCompletionStatusInfo] = useState<string>("");
 
@@ -114,6 +114,7 @@ export const Setup: React.FC = () => {
       const prettyAccountSecret =
         accountSecret.t === "Mnemonic" ? "mnemonic"
         : accountSecret.t === "PrivateKey" ? "private key"
+        : accountSecret.t === "ShieldedKeys" ? "spending key"
         : assertNever(accountSecret);
       setCompletionStatusInfo(`Encrypting and storing ${prettyAccountSecret}.`);
 
@@ -122,15 +123,19 @@ export const Setup: React.FC = () => {
       if (!parentAccount) {
         throw new Error("Background returned failure when creating account");
       }
-      setParentAccountStore(parentAccount);
 
-      // Create shielded account
-      setCompletionStatusInfo("Generating Shielded Account");
-      const shieldedAccount = await accountManager.saveShieldedAccount(
-        details,
-        parentAccount
-      );
-      setShieldedAccount(shieldedAccount);
+      if (parentAccount.type !== AccountType.ShieldedKeys) {
+        setParentAccountStore(parentAccount);
+        // Create shielded account
+        setCompletionStatusInfo("Generating Shielded Account");
+        const shieldedAccount = await accountManager.saveShieldedAccount(
+          details,
+          parentAccount
+        );
+        setPaymentAddress(shieldedAccount?.address);
+      } else {
+        setPaymentAddress(parentAccount.address);
+      }
       setCompletionStatus(CompletionStatus.Completed);
       setCompletionStatusInfo("Done!");
     } catch (e) {
@@ -280,7 +285,7 @@ export const Setup: React.FC = () => {
                       path={bip44Path}
                       // TODO: Display custom zip32 path across apps!
                       parentAccountStore={parentAccountStore}
-                      shieldedAccount={shieldedAccount}
+                      paymentAddress={paymentAddress}
                       status={completionStatus}
                       statusInfo={completionStatusInfo}
                     />
@@ -361,7 +366,7 @@ export const Setup: React.FC = () => {
                       path={bip44Path}
                       // TODO: Pass zip32 path!
                       parentAccountStore={parentAccountStore}
-                      shieldedAccount={shieldedAccount}
+                      paymentAddress={paymentAddress}
                       status={completionStatus}
                       statusInfo={completionStatusInfo}
                     />
@@ -413,7 +418,7 @@ export const Setup: React.FC = () => {
               <Route
                 path={routes.ledgerComplete()}
                 element={
-                  <Wrapper onLoad={setCurrentPage("Namada Keys Imported", 3)}>
+                  <Wrapper onLoad={setCurrentPage("Ledger Keys Imported", 3)}>
                     <LedgerConfirmation />
                   </Wrapper>
                 }

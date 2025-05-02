@@ -1,5 +1,4 @@
 import { Checkbox, Modal } from "@namada/components";
-import { AccountType } from "@namada/types";
 import { ModalTransition } from "App/Common/ModalTransition";
 import {
   accountsAtom,
@@ -31,7 +30,7 @@ export const SwitchAccountPanel = (): JSX.Element => {
           className={clsx(
             "flex flex-col gap-8 ml-auto pointer-events-auto",
             "w-fit max-w-[400px] rounded-md text-white h-full",
-            "bg-rblack border border-neutral-700 p-5"
+            "bg-black border border-neutral-700 p-5"
           )}
         >
           <header className="relative">
@@ -45,7 +44,7 @@ export const SwitchAccountPanel = (): JSX.Element => {
           </header>
           <div className="overflow-auto dark-scrollbar pb-5">
             {data
-              ?.filter((i) => i.type !== AccountType.ShieldedKeys)
+              ?.filter((i) => !i.parentId)
               .map(({ alias, address }) => (
                 <button
                   key={alias}

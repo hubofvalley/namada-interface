@@ -1,7 +1,7 @@
 import { ActionButton, GapPatterns, Stack } from "@namada/components";
 import { useSanitizedParams } from "@namada/hooks";
 import { TxType, TxTypeLabel } from "@namada/sdk/web";
-import { AccountType } from "@namada/types";
+import { AccountType, NamadaChains, TransferProps } from "@namada/types";
 import { shortenAddress } from "@namada/utils";
 import { PageHeader } from "App/Common/PageHeader";
 import { ApprovalDetails } from "Approvals/Approvals";
@@ -13,7 +13,7 @@ import { useRequester } from "hooks/useRequester";
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Ports } from "router";
-import { closeCurrentTab } from "utils";
+import { closeCurrentTab, parseTransferType } from "utils";
 import { ApprovalPanelHeader } from "./ApprovalPanelHeader";
 
 type Props = {
@@ -28,21 +28,51 @@ export const ApproveSignTx: React.FC<Props> = ({ details, setDetails }) => {
   const accountType =
     (params?.accountType as AccountType) || AccountType.PrivateKey;
   const msgId = params?.msgId;
+  const origin = params?.origin;
   const signer = params?.signer;
   const [displayTransactionData, setDisplayTransactionData] = useState(false);
 
   useEffect(() => {
     const fetchDetails = async (): Promise<void> => {
-      if (signer && msgId) {
+      if (signer && msgId && origin) {
         const txDetails = await requester.sendMessage(
           Ports.Background,
           new QueryTxDetailsMsg(msgId)
         );
+
+        // Collect all commitment types
+        const txTypes = txDetails
+          .map((d) =>
+            d.commitments.map((cmt) => ({
+              ...cmt,
+              wrapperFeePayer: d.wrapperFeePayer,
+            }))
+          )
+          .flat()
+          .map((commitment) => {
+            if (commitment.txType === TxType.Transfer) {
+              const { type } = parseTransferType(
+                commitment as TransferProps,
+                commitment.wrapperFeePayer
+              );
+              return type;
+            } else if (commitment.txType === TxType.IBCTransfer) {
+              return commitment.maspTxIn && commitment.maspTxOut ?
+                  "IbcUnshieldTransfer"
+                : "IbcTransfer";
+            } else {
+              return commitment.txType as string;
+            }
+          });
+
         setDetails({
           msgId,
           signer,
           accountType,
+          origin,
+          chainIds: txDetails.map((cmt) => cmt.chainId),
           txDetails,
+          txType: txTypes[0],
         });
       }
     };
@@ -135,11 +165,25 @@ export const ApproveSignTx: React.FC<Props> = ({ details, setDetails }) => {
           )}
         </main>
         <Stack gap={2} as="form" onSubmit={handleApproveSubmit}>
-          {signer && (
-            <p className="text-xs">
-              Signer: <strong>{shortenAddress(signer)}</strong>
-            </p>
-          )}
+          <p className="text-xs">
+            {signer && (
+              <>
+                Signer: <strong>{shortenAddress(signer)}</strong>
+              </>
+            )}
+            <br />
+            Origin: <strong>{origin}</strong>
+            <br />
+            Chain:{" "}
+            <strong>
+              {details?.chainIds
+                // Get only unique chain IDs
+                .filter((chainId, i) => details.chainIds.indexOf(chainId) === i)
+                // Display chain alias for known networks, otherwise display chain ID
+                .map((chainId) => NamadaChains.get(chainId) || chainId)
+                .join(", ")}
+            </strong>
+          </p>
           <Stack gap={1.5} direction="vertical">
             <ActionButton>Approve</ActionButton>
             <ActionButton

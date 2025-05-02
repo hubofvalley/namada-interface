@@ -13,62 +13,49 @@ use crate::utils::set_panic_hook;
 #[cfg(feature = "web")]
 use crate::utils::to_bytes;
 use crate::utils::to_js_result;
-use args::{generate_masp_build_params, masp_sign, BuildParams};
+use args::{generate_rng_build_params, masp_sign, BuildParams, MapSaplingSigAuth};
 use gloo_utils::format::JsValueSerdeExt;
+use js_sys::Uint8Array;
 use namada_sdk::address::{Address, ImplicitAddress, MASP};
 use namada_sdk::args::{
     GenIbcShieldingTransfer, IbcShieldingTransferAsset, InputAmount, Query, TxExpiration,
 };
 use namada_sdk::borsh::{self, BorshDeserialize};
+use namada_sdk::collections::HashMap;
+use namada_sdk::control_flow::time;
 use namada_sdk::eth_bridge::bridge_pool::build_bridge_pool_tx;
 use namada_sdk::hash::Hash;
 use namada_sdk::ibc::convert_masp_tx_to_ibc_memo;
 use namada_sdk::ibc::core::host::types::identifiers::{ChannelId, PortId};
-use namada_sdk::io::NamadaIo;
+use namada_sdk::io::{Client, NamadaIo};
 use namada_sdk::key::{common, ed25519, RefTo, SigScheme};
 use namada_sdk::masp::shielded_wallet::ShieldedApi;
 use namada_sdk::masp::ShieldedContext;
-use namada_sdk::masp_primitives::transaction::components::{
-    amount::I128Sum, sapling::fees::InputView,
-};
+use namada_sdk::masp_primitives::sapling::ViewingKey;
+use namada_sdk::masp_primitives::transaction::components::amount::I128Sum;
 use namada_sdk::masp_primitives::zip32::{ExtendedFullViewingKey, ExtendedKey};
-use namada_sdk::rpc::query_denom;
-use namada_sdk::rpc::{query_epoch, InnerTxResult};
+use namada_sdk::rpc::{self, query_denom, query_epoch, InnerTxResult, TxResponse};
 use namada_sdk::signing::SigningTxData;
 use namada_sdk::string_encoding::Format;
 use namada_sdk::tendermint_rpc::Url;
 use namada_sdk::token::{Amount, DenominatedAmount, MaspEpoch};
 use namada_sdk::token::{MaspTxId, OptionExt};
 use namada_sdk::tx::data::TxType;
+use namada_sdk::tx::Section;
 use namada_sdk::tx::{
     build_batch, build_bond, build_claim_rewards, build_ibc_transfer, build_redelegation,
     build_reveal_pk, build_shielded_transfer, build_shielding_transfer, build_transparent_transfer,
     build_unbond, build_unshielding_transfer, build_vote_proposal, build_withdraw,
-    data::compute_inner_tx_hash, either::Either, gen_ibc_shielding_transfer, process_tx,
-    ProcessTxResponse, Tx,
+    data::compute_inner_tx_hash, either::Either, gen_ibc_shielding_transfer, Tx,
 };
 use namada_sdk::wallet::{Store, Wallet};
-use namada_sdk::{ExtendedViewingKey, Namada, NamadaImpl, PaymentAddress, TransferTarget};
+use namada_sdk::{
+    ExtendedViewingKey, Namada, NamadaImpl, PaymentAddress, TransferSource, TransferTarget,
+};
 use std::collections::BTreeMap;
 use std::str::FromStr;
 use tx::MaspSigningData;
 use wasm_bindgen::{prelude::wasm_bindgen, JsError, JsValue};
-
-// Maximum number of spend description randomness parameters that can be
-// generated on the hardware wallet. It is hard to compute the exact required
-// number because a given MASP source could be distributed amongst several
-// notes.
-const MAX_HW_SPEND: usize = 15;
-// Maximum number of convert description randomness parameters that can be
-// generated on the hardware wallet. It is hard to compute the exact required
-// number because the number of conversions that are used depends on the
-// protocol's current state.
-const MAX_HW_CONVERT: usize = 15;
-// Maximum number of output description randomness parameters that can be
-// generated on the hardware wallet. It is hard to compute the exact required
-// number because the number of outputs depends on the number of dummy outputs
-// introduced.
-const MAX_HW_OUTPUT: usize = 15;
 
 /// Represents the Sdk public API.
 #[wasm_bindgen]
@@ -153,12 +140,12 @@ impl Sdk {
     pub async fn load_masp_params(
         &self,
         context_dir: JsValue,
-        chain_id: &str,
+        chain_id: String,
     ) -> Result<(), JsValue> {
         let context_dir = context_dir.as_string().unwrap();
 
         let mut shielded = self.namada.shielded_mut().await;
-        *shielded = ShieldedContext::new(masp::JSShieldedUtils::new(&context_dir, chain_id).await);
+        *shielded = ShieldedContext::new(masp::JSShieldedUtils::new(&context_dir, &chain_id).await);
 
         Ok(())
     }
@@ -233,18 +220,57 @@ impl Sdk {
             }
         }
 
-        let signing_data = tx
-            .signing_tx_data()?
+        to_js_result(borsh::to_vec(&namada_tx)?)
+    }
+
+    // TODO: this should be unified with sign_masp somehow
+    pub fn sign_masp_ledger(
+        &self,
+        tx: Vec<u8>,
+        signing_data: Vec<Uint8Array>,
+        signature: Vec<u8>,
+    ) -> Result<JsValue, JsError> {
+        let mut namada_tx: Tx = borsh::from_slice(&tx)?;
+        let signing_data = signing_data
             .iter()
-            .cloned()
-            .map(|std| (std, None))
-            .collect::<Vec<(SigningTxData, Option<MaspSigningData>)>>();
+            .map(|sd| {
+                borsh::from_slice(&sd.to_vec()).expect("Expected to deserialize signing data")
+            })
+            .collect::<Vec<tx::SigningData>>();
 
-        // Recreate the tx with the new signatures, we can pass None for masp_signing_data as it
-        // was already used
-        let tx = tx::Tx::new(namada_tx, &borsh::to_vec(&tx.args())?, signing_data)?;
+        for signing_data in signing_data {
+            let signing_tx_data = signing_data.to_signing_tx_data()?;
+            if let Some(shielded_hash) = signing_tx_data.shielded_hash {
+                let mut masp_tx = namada_tx
+                    .get_masp_section(&shielded_hash)
+                    .expect("Expected to find the indicated MASP Transaction")
+                    .clone();
 
-        to_js_result(borsh::to_vec(&tx)?)
+                let mut authorizations = HashMap::new();
+
+                let signature =
+                    namada_sdk::masp_primitives::sapling::redjubjub::Signature::try_from_slice(
+                        &signature.to_vec(),
+                    )?;
+                // TODO: this works only if we assume that we do one
+                // shielded transfer in the transaction
+                authorizations.insert(0_usize, signature);
+
+                masp_tx = (*masp_tx)
+                    .clone()
+                    .map_authorization::<namada_sdk::masp_primitives::transaction::Authorized>(
+                        (),
+                        MapSaplingSigAuth(authorizations),
+                    )
+                    .freeze()
+                    .unwrap();
+
+                namada_tx.remove_masp_section(&shielded_hash);
+                namada_tx.add_section(Section::MaspTx(masp_tx));
+            }
+        }
+
+        to_js_result(borsh::to_vec(&namada_tx)?)
     }
 
     pub async fn sign_tx(
@@ -279,16 +305,14 @@ impl Sdk {
                 common::SecretKey::Ed25519(ed25519::SecretKey::from_str(&private_key)?);
             signing_keys.push(signing_key.clone());
 
-            if !wrapper_signing_key.is_some() {
+            if wrapper_signing_key.is_none() {
                 // Check address against wrapper_fee_payer
                 let wrapper_fee_payer = wrapper_fee_payer.clone();
                 let public = common::PublicKey::from(signing_key.ref_to());
                 let implicit = Address::Implicit(ImplicitAddress::from(&public));
 
-                if wrapper_fee_payer.is_some() {
-                    if implicit == wrapper_fee_payer.unwrap() {
-                        wrapper_signing_key = Some(signing_key)
-                    }
+                if wrapper_fee_payer.is_some() && implicit == wrapper_fee_payer.unwrap() {
+                    wrapper_signing_key = Some(signing_key)
                 }
             }
         }
@@ -313,20 +337,33 @@ impl Sdk {
         to_js_result(borsh::to_vec(&namada_tx)?)
     }
 
-    // Broadcast Tx
-    pub async fn process_tx(&self, tx_bytes: &[u8], tx_msg: &[u8]) -> Result<JsValue, JsError> {
-        let args = args::tx_args_from_slice(tx_msg)?;
-        let tx = Tx::try_from_slice(tx_bytes)?;
+    pub async fn broadcast_tx(&self, tx_bytes: &[u8], deadline: u64) -> Result<JsValue, JsValue> {
+        let tx = Tx::try_from_slice(tx_bytes).expect("Should be able to deserialize a Tx");
         let cmts = tx.commitments().clone();
         let wrapper_hash = tx.wrapper_hash();
-        let resp = process_tx(&self.namada, &args, tx.clone()).await?;
+        let tx_hash = tx.header_hash().to_string();
 
-        let mut batch_tx_results: Vec<tx::BatchTxResult> = vec![];
+        let response = self.namada.client().broadcast_tx_sync(tx.to_bytes()).await;
 
-        // Collect results and return
-        match resp {
-            ProcessTxResponse::Applied(tx_response) => {
-                let code = tx_response.code.to_string();
+        match response {
+            Ok(res) => {
+                if res.clone().code != 0.into() {
+                    return Err(JsValue::from(
+                        &serde_json::to_string(&res)
+                            .map_err(|e| JsValue::from_str(&e.to_string()))?,
+                    ));
+                }
+
+                let deadline = time::Instant::now() + time::Duration::from_secs(deadline);
+                let tx_query = rpc::TxEventQuery::Applied(tx_hash.as_str());
+                let event = rpc::query_tx_status(&self.namada, tx_query, deadline)
+                    .await
+                    .map_err(|e| JsValue::from_str(&e.to_string()))?;
+                let tx_response = TxResponse::from_event(event);
+
+                let mut batch_tx_results: Vec<tx::BatchTxResult> = vec![];
+                let code =
+                    u8::try_from(tx_response.code.to_usize()).expect("Code should fit in u8");
                 let gas_used = tx_response.gas_used.to_string();
                 let height = tx_response.height.to_string();
                 let info = tx_response.info.to_string();
@@ -342,7 +379,7 @@ impl Sdk {
                     }
                 }
 
-                let response = tx::TxResponse::new(
+                let tx_response = tx::TxResponse::new(
                     code,
                     batch_tx_results,
                     gas_used,
@@ -351,12 +388,11 @@ impl Sdk {
                     info,
                     log,
                 );
-                to_js_result(borsh::to_vec(&response)?)
+                Ok(JsValue::from(
+                    borsh::to_vec(&tx_response).map_err(|e| JsValue::from_str(&e.to_string()))?,
+                ))
             }
-            _ => Err(JsError::new(&format!(
-                "Tx not applied: {}",
-                &wrapper_hash.unwrap().to_string()
-            ))),
+            Err(e) => Err(JsValue::from(e.to_string())),
         }
     }
 
@@ -473,10 +509,14 @@ impl Sdk {
         shielded_transfer_msg: &[u8],
         wrapper_tx_msg: &[u8],
     ) -> Result<JsValue, JsError> {
-        let mut args = args::shielded_transfer_tx_args(shielded_transfer_msg, wrapper_tx_msg)?;
-        let bparams =
-            generate_masp_build_params(MAX_HW_SPEND, MAX_HW_CONVERT, MAX_HW_OUTPUT, &args.tx)
-                .await?;
+        let (mut args, bparams) =
+            args::shielded_transfer_tx_args(shielded_transfer_msg, wrapper_tx_msg)?;
+
+        let bparams = if let Some(bparams) = bparams {
+            BuildParams::StoredBuildParams(bparams)
+        } else {
+            generate_rng_build_params()
+        };
 
         let _ = &self.namada.shielded_mut().await.load().await?;
 
@@ -514,11 +554,14 @@ impl Sdk {
         unshielding_transfer_msg: &[u8],
         wrapper_tx_msg: &[u8],
     ) -> Result<JsValue, JsError> {
-        let mut args =
+        let (mut args, bparams) =
             args::unshielding_transfer_tx_args(unshielding_transfer_msg, wrapper_tx_msg)?;
-        let bparams =
-            generate_masp_build_params(MAX_HW_SPEND, MAX_HW_CONVERT, MAX_HW_OUTPUT, &args.tx)
-                .await?;
+
+        let bparams = if let Some(bparams) = bparams {
+            BuildParams::StoredBuildParams(bparams)
+        } else {
+            generate_rng_build_params()
+        };
 
         let _ = &self.namada.shielded_mut().await.load().await?;
 
@@ -552,10 +595,13 @@ impl Sdk {
         shielding_transfer_msg: &[u8],
         wrapper_tx_msg: &[u8],
     ) -> Result<JsValue, JsError> {
-        let mut args = args::shielding_transfer_tx_args(shielding_transfer_msg, wrapper_tx_msg)?;
-        let bparams =
-            generate_masp_build_params(MAX_HW_SPEND, MAX_HW_CONVERT, MAX_HW_OUTPUT, &args.tx)
-                .await?;
+        let (mut args, bparams) =
+            args::shielding_transfer_tx_args(shielding_transfer_msg, wrapper_tx_msg)?;
+        let bparams = if let Some(bparams) = bparams {
+            BuildParams::StoredBuildParams(bparams)
+        } else {
+            generate_rng_build_params()
+        };
         let _ = &self.namada.shielded_mut().await.load().await?;
 
         let (tx, signing_data, _) = match bparams {
@@ -575,49 +621,42 @@ impl Sdk {
         ibc_transfer_msg: &[u8],
         wrapper_tx_msg: &[u8],
     ) -> Result<JsValue, JsError> {
-        let args = args::ibc_transfer_tx_args(ibc_transfer_msg, wrapper_tx_msg)?;
-        let bparams =
-            generate_masp_build_params(MAX_HW_SPEND, MAX_HW_CONVERT, MAX_HW_OUTPUT, &args.tx)
-                .await?;
+        let (args, bparams) = args::ibc_transfer_tx_args(ibc_transfer_msg, wrapper_tx_msg)?;
 
-        let ((tx, signing_data, _), bparams) = match bparams {
+        let bparams = if let Some(bparams) = bparams {
+            BuildParams::StoredBuildParams(bparams)
+        } else {
+            generate_rng_build_params()
+        };
+
+        let _ = &self.namada.shielded_mut().await.load().await?;
+
+        let xfvks = match args.source {
+            TransferSource::Address(_) => vec![],
+            TransferSource::ExtendedKey(pek) => vec![pek.to_viewing_key()],
+        };
+
+        let ((tx, signing_data, _), masp_signing_data) = match bparams {
             BuildParams::RngBuildParams(mut bparams) => {
                 let tx = build_ibc_transfer(&self.namada, &args, &mut bparams).await?;
-                let bparams = bparams
-                    .to_stored()
-                    .ok_or_err_msg("Cannot convert bparams to stored")?;
+                let masp_signing_data = MaspSigningData::new(
+                    bparams
+                        .to_stored()
+                        .ok_or_err_msg("Cannot convert bparams to stored")?,
+                    xfvks,
+                );
 
-                (tx, bparams)
+                (tx, masp_signing_data)
             }
             BuildParams::StoredBuildParams(mut bparams) => {
                 let tx = build_ibc_transfer(&self.namada, &args, &mut bparams).await?;
+                let masp_signing_data = MaspSigningData::new(bparams, xfvks);
 
-                (tx, bparams)
+                (tx, masp_signing_data)
             }
         };
 
-        // As we can't get ExtendedFullViewingKeys from the tx args we need to get them from the
-        // MASP Builder section of transaction
-        let masp_signing_data = if let Some(shielded_hash) = signing_data.shielded_hash {
-            let masp_builder = tx
-                .get_masp_builder(&shielded_hash)
-                .ok_or_err_msg("Expected to find the indicated MASP Builder")?;
-            let xfvks = masp_builder
-                .builder
-                .sapling_inputs()
-                .iter()
-                .map(|input| input.key())
-                .cloned()
-                .collect::<Vec<_>>();
-
-            let masp_signing_data = MaspSigningData::new(bparams, xfvks);
-
-            Some(masp_signing_data)
-        } else {
-            None
-        };
-
-        self.serialize_tx_result(tx, wrapper_tx_msg, signing_data, masp_signing_data)
+        self.serialize_tx_result(tx, wrapper_tx_msg, signing_data, Some(masp_signing_data))
     }
 
     pub async fn build_eth_bridge_transfer(
@@ -794,6 +833,81 @@ impl Sdk {
         to_js_result(rewards.to_string())
     }
 
+    async fn compute_shielded_balance_per_token(
+        &self,
+        shielded: &mut ShieldedContext<masp::JSShieldedUtils>,
+        vk: ViewingKey,
+        token: Address,
+    ) -> Option<I128Sum> {
+        // Cannot query the balance of a key that's not in the map
+        if !shielded.pos_map.contains_key(&vk) {
+            return None;
+        }
+        let mut val_acc = I128Sum::zero();
+        // Retrieve the notes that can be spent by this key
+        let mut notes = vec![];
+        if let Some(avail_notes) = shielded.pos_map.get(&vk) {
+            for note_idx in avail_notes {
+                // Spent notes cannot contribute a new transaction's pool
+
+                if shielded.spents.contains(note_idx) {
+                    continue;
+                }
+                let note = shielded.note_map.get(note_idx).expect("Note not found");
+                notes.push((note.asset_type, note.value));
+            }
+        }
+
+        for (asset_type, value) in notes {
+            let asset_data = shielded
+                .decode_asset_type(&self.namada.client, asset_type)
+                .await;
+
+            // If asset is not found then skip
+            if asset_data.is_none() {
+                continue;
+            }
+
+            // If asset is not the one we are looking for then skip
+            if asset_data.unwrap().token != token {
+                continue;
+            }
+            val_acc += I128Sum::from_nonnegative(asset_type, i128::from(value))
+                .expect("Can't convert to I128Sum");
+        }
+
+        Some(val_acc)
+    }
+
+    pub async fn shielded_rewards_per_token(
+        &self,
+        owner: String,
+        token: String,
+        chain_id: String,
+    ) -> Result<JsValue, JsError> {
+        let token = Address::from_str(&token)?;
+
+        let mut shielded: ShieldedContext<masp::JSShieldedUtils> = ShieldedContext::default();
+        shielded.utils.chain_id = chain_id.clone();
+        shielded.load().await?;
+
+        let xvk = ExtendedViewingKey::from_str(&owner)?;
+        let raw_balance = self
+            .compute_shielded_balance_per_token(&mut shielded, xvk.as_viewing_key(), token)
+            .await;
+
+        let rewards = match raw_balance {
+            Some(balance) => shielded
+                .estimate_next_epoch_rewards(&self.namada, &balance)
+                .await
+                .map(|r| r.amount())
+                .map_err(|e| JsError::new(&e.to_string()))?,
+            None => Amount::zero(),
+        };
+
+        to_js_result(rewards.to_string())
+    }
+
     pub async fn simulate_shielded_rewards(
         &self,
         chain_id: String,
@@ -806,7 +920,7 @@ impl Sdk {
             .await
             .ok_or(JsError::new(&format!(
                 "Denom for token {} not found",
-                token.to_string()
+                token
             )))?;
         let amount = DenominatedAmount::new(Amount::from_str(amount, denom)?, denom);
 

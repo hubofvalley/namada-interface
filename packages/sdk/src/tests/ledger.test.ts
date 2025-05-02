@@ -1,13 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import TransportHID from "@ledgerhq/hw-transport-webhid";
 import TransportUSB from "@ledgerhq/hw-transport-webusb";
 import * as LedgerNamadaNS from "@zondax/ledger-namada";
 import * as LedgerNS from "../ledger";
-import {
-  Ledger,
-  initLedgerHIDTransport,
-  initLedgerUSBTransport,
-} from "../ledger";
+import { Ledger, initLedgerUSBTransport } from "../ledger";
 
 // Needed otherwise we can't redefine the classes from this module
 jest.mock("@zondax/ledger-namada", () => {
@@ -33,17 +28,6 @@ describe("ledger", () => {
       const res = await initLedgerUSBTransport();
 
       expect(TransportUSB.create).toHaveBeenCalled();
-      expect(res).toEqual(returned);
-    });
-  });
-
-  describe("initLedgerHIDTransport", () => {
-    it("should initialize a Ledger HID transport", async () => {
-      const returned = { hid: true };
-      jest.spyOn(TransportHID, "create").mockResolvedValue(returned as any);
-      const res = await initLedgerHIDTransport();
-
-      expect(TransportHID.create).toHaveBeenCalled();
       expect(res).toEqual(returned);
     });
   });
@@ -116,9 +100,15 @@ describe("ledger", () => {
     it("should return the status of the ledger", async () => {
       const version = { version: "1.0.0" };
       const info = { info: "info" };
+      const deviceId = "nanoSP";
+      const deviceName = "Ledger Nano S+";
+
       const namadaApp = {
         getVersion: jest.fn().mockReturnValue(version),
         getAppInfo: jest.fn().mockReturnValue(info),
+        transport: {
+          deviceModel: { id: deviceId, productName: deviceName },
+        },
       };
       const ledger: Ledger = new (Ledger as any)(namadaApp as any);
 
@@ -126,7 +116,7 @@ describe("ledger", () => {
 
       expect(namadaApp.getVersion).toHaveBeenCalled();
       expect(namadaApp.getAppInfo).toHaveBeenCalled();
-      expect(res).toEqual({ version, info });
+      expect(res).toEqual({ version, info, deviceId, deviceName });
     });
   });
 

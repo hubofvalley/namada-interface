@@ -21,4 +21,8 @@ export type LedgerAccountDetails = {
   zip32Path: Zip32Path;
   address: string;
   publicKey: string;
+  extendedViewingKey: string;
+  pseudoExtendedKey: string;
+  paymentAddress: string;
+  diversifierIndex: number;
 };

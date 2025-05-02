@@ -28,6 +28,10 @@
 
 [`ProgressBarNames`](ProgressBarNames.md)
 
+#### Defined in
+
+shared/src/shared/shared.d.ts:107
+
 ## Properties
 
 ### Applied
@@ -36,7 +40,7 @@
 
 #### Defined in
 
-shared/src/shared/shared.d.ts:156
+shared/src/shared/shared.d.ts:111
 
 ___
 
@@ -46,7 +50,7 @@ ___
 
 #### Defined in
 
-shared/src/shared/shared.d.ts:159
+shared/src/shared/shared.d.ts:110
 
 ___
 
@@ -56,7 +60,7 @@ ___
 
 #### Defined in
 
-shared/src/shared/shared.d.ts:162
+shared/src/shared/shared.d.ts:109
 
 ## Methods
 
@@ -70,4 +74,4 @@ shared/src/shared/shared.d.ts:162
 
 #### Defined in
 
-shared/src/shared/shared.d.ts:153
+shared/src/shared/shared.d.ts:108

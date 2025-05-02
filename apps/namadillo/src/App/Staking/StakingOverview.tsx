@@ -1,4 +1,5 @@
 import { Panel } from "@namada/components";
+import { NavigationFooter } from "App/AccountOverview/NavigationFooter";
 import { ConnectBanner } from "App/Common/ConnectBanner";
 import { PageWithSidebar } from "App/Common/PageWithSidebar";
 import { Sidebar } from "App/Layout/Sidebar";
@@ -10,14 +11,16 @@ import { useAtomValue } from "jotai";
 import { AllValidatorsTable } from "./AllValidatorsTable";
 import { MyValidatorsTable } from "./MyValidatorsTable";
 import { StakingSummary } from "./StakingSummary";
+import { UnbondedTable } from "./UnbondedTable";
 import { UnbondingAmountsTable } from "./UnbondingAmountsTable";
+import { WithdrawalButton } from "./WithdrawalButton";
 
 export const StakingOverview = (): JSX.Element => {
   const userHasAccount = useUserHasAccount();
   const myValidators = useAtomValue(myValidatorsAtom);
   const hasStaking = myValidators.data?.some((v) => v.stakedAmount?.gt(0));
   const hasUnbonded = myValidators.data?.some((v) => v.unbondedAmount?.gt(0));
-  const hasWithdraws = myValidators.data?.some((v) =>
+  const hasWithdrawableAmounts = myValidators.data?.some((v) =>
     v.withdrawableAmount?.gt(0)
   );
 
@@ -27,11 +30,19 @@ export const StakingOverview = (): JSX.Element => {
         {!userHasAccount && <ConnectBanner actionText="To stake" />}
         {userHasAccount && <StakingSummary />}
         {hasStaking && (
-          <Panel title="My Validators" className="relative grid">
+          <Panel title="My Validators">
             <MyValidatorsTable />
           </Panel>
         )}
-        {(hasUnbonded || hasWithdraws) && (
+        {hasWithdrawableAmounts && (
+          <Panel title="Unbonded">
+            <div className="flex justify-end -mt-15">
+              <WithdrawalButton disabled={false} />
+            </div>
+            <UnbondedTable />
+          </Panel>
+        )}
+        {hasUnbonded && (
           <Panel title="Unbonding" className="relative">
             <UnbondingAmountsTable />
           </Panel>
@@ -39,6 +50,7 @@ export const StakingOverview = (): JSX.Element => {
         <Panel className="relative pb-6 overflow-hidden" title="All Validators">
           <AllValidatorsTable />
         </Panel>
+        <NavigationFooter />
       </div>
       <Sidebar>
         {hasStaking && myValidators.isSuccess && (

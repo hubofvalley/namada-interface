@@ -1,5 +1,4 @@
 import { SidebarMenuItem } from "App/Common/SidebarMenuItem";
-import { MASPIcon } from "App/Icons/MASPIcon";
 import { routes } from "App/routes";
 import { applicationFeaturesAtom } from "atoms/settings";
 import { useAtomValue } from "jotai";
@@ -10,14 +9,15 @@ import { FaBug } from "react-icons/fa6";
 import { GoHistory, GoStack } from "react-icons/go";
 import { IoSwapHorizontal } from "react-icons/io5";
 import { TbVectorTriangle } from "react-icons/tb";
-import { bugReportUrl, DISCORD_URL, TWITTER_URL } from "urls";
+import { Link } from "react-router-dom";
+import { DISCORD_URL, TWITTER_URL } from "urls";
 
 export const Navigation = (): JSX.Element => {
   const features = useAtomValue(applicationFeaturesAtom);
 
   const menuItems: { label: string; icon: React.ReactNode; url?: string }[] = [
     {
-      label: "Overview",
+      label: "Manage Assets",
       icon: <AiFillHome />,
       url: routes.root,
     },
@@ -30,11 +30,6 @@ export const Navigation = (): JSX.Element => {
       label: "Governance",
       icon: <FaVoteYea />,
       url: routes.governance,
-    },
-    {
-      label: "MASP",
-      icon: <MASPIcon />,
-      url: features.maspEnabled ? routes.masp : undefined,
     },
     {
       label: "IBC Transfer",
@@ -60,7 +55,7 @@ export const Navigation = (): JSX.Element => {
   ];
 
   return (
-    <div className="h-full flex flex-col justify-between flex-1 pt-6 pb-8 px-6">
+    <div className="min-h-full flex flex-col justify-between gap-10 p-6 pb-8">
       <ul className="flex flex-col gap-4">
         {menuItems.map((item) => (
           <li key={item.label}>
@@ -74,15 +69,13 @@ export const Navigation = (): JSX.Element => {
       <footer className="flex flex-col gap-10">
         <ul className="flex flex-col gap-1 text-neutral-300 text-sm">
           <li>
-            <a
-              href={bugReportUrl}
+            <Link
+              to={routes.bugReport}
               className="inline-flex items-center gap-2 hover:text-cyan"
-              target="_blank"
-              rel="noreferrer nofollow"
             >
               <FaBug />
               Bug Report
-            </a>
+            </Link>
           </li>
           <li>
             <a

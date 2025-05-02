@@ -27,7 +27,7 @@ export const UpdateRequired = (): JSX.Element => {
         className={clsx(
           "flex flex-col pointer-events-auto",
           "w-full h-full",
-          "bg-rblack border rounded-md border-yellow-300 p-3"
+          "bg-black border rounded-md border-yellow-300 p-3"
         )}
       >
         <header className="relative">
@@ -75,11 +75,6 @@ export const UpdateRequired = (): JSX.Element => {
                 </li>
               </ol>
             </Stack>
-            <p className="text-yellow text-center leading-3">
-              * Ledger accounts will receive shielded
-              <br /> functions in a separate update in an
-              <br /> upcoming release
-            </p>
           </Stack>
         </div>
       </div>

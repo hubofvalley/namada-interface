@@ -1,7 +1,7 @@
 import { Chain } from "@chain-registry/types";
 import { AccountType } from "@namada/types";
 import { mapUndefined } from "@namada/utils";
-import { routes } from "App/routes";
+import { params, routes } from "App/routes";
 import {
   OnSubmitTransferParams,
   TransferModule,
@@ -10,11 +10,13 @@ import { allDefaultAccountsAtom } from "atoms/accounts";
 import {
   assetBalanceAtomFamily,
   availableChainsAtom,
+  enabledIbcAssetsDenomFamily,
   ibcChannelsFamily,
 } from "atoms/integrations";
 import BigNumber from "bignumber.js";
 import { useIbcTransaction } from "hooks/useIbcTransaction";
 import { useTransactionActions } from "hooks/useTransactionActions";
+import { useUrlState } from "hooks/useUrlState";
 import { useWalletManager } from "hooks/useWalletManager";
 import { wallets } from "integrations";
 import { KeplrWalletManager } from "integrations/Keplr";
@@ -23,7 +25,7 @@ import { useAtomValue } from "jotai";
 import { useEffect, useMemo, useState } from "react";
 import { generatePath, useNavigate } from "react-router-dom";
 import namadaChain from "registry/namada.json";
-import { Address } from "types";
+import { AddressWithAssetAndAmountMap } from "types";
 import { useTransactionEventListener } from "utils";
 import { IbcTopHeader } from "./IbcTopHeader";
 
@@ -59,9 +61,13 @@ export const IbcTransfer = (): JSX.Element => {
     })
   );
 
-  // Local State
+  const { data: enabledAssets, isLoading: isLoadingEnabledAssets } =
+    useAtomValue(enabledIbcAssetsDenomFamily(ibcChannels?.namadaChannel));
+
   const [shielded, setShielded] = useState<boolean>(true);
-  const [selectedAssetAddress, setSelectedAssetAddress] = useState<Address>();
+  const [selectedAssetAddress, setSelectedAssetAddress] = useUrlState(
+    params.asset
+  );
   const [amount, setAmount] = useState<BigNumber | undefined>();
   const [generalErrorMessage, setGeneralErrorMessage] = useState("");
   const [sourceChannel, setSourceChannel] = useState("");
@@ -75,10 +81,19 @@ export const IbcTransfer = (): JSX.Element => {
     selectedAssetAddress
   );
 
-  const selectedAsset = mapUndefined(
-    (address) => userAssets?.[address],
-    selectedAssetAddress
-  );
+  const selectedAsset =
+    selectedAssetAddress ? userAssets?.[selectedAssetAddress] : undefined;
+
+  const availableAssets = useMemo(() => {
+    if (!enabledAssets || !userAssets) return undefined;
+    const output: AddressWithAssetAndAmountMap = {};
+    for (const key in userAssets) {
+      if (enabledAssets.includes(userAssets[key].asset.base)) {
+        output[key] = { ...userAssets[key] };
+      }
+    }
+    return output;
+  }, [enabledAssets, userAssets]);
 
   // Manage the history of transactions
   const { storeTransaction } = useTransactionActions();
@@ -159,14 +174,14 @@ export const IbcTransfer = (): JSX.Element => {
 
   return (
     <div className="relative min-h-[600px]">
-      <header className="flex flex-col items-center text-center mb-3 gap-6">
+      <header className="flex flex-col items-center text-center mb-10 gap-6">
         <IbcTopHeader type="ibcToNam" isShielded={shielded} />
         <h2 className="text-lg">IBC Transfer to Namada</h2>
       </header>
       <TransferModule
         source={{
-          isLoadingAssets: isLoadingBalances,
-          availableAssets: userAssets,
+          isLoadingAssets: isLoadingBalances || isLoadingEnabledAssets,
+          availableAssets,
           selectedAssetAddress,
           availableAmount,
           availableChains,
@@ -185,7 +200,7 @@ export const IbcTransfer = (): JSX.Element => {
           availableWallets: [wallets.namada],
           wallet: wallets.namada,
           walletAddress: namadaAddress,
-          isShielded: shielded,
+          isShieldedAddress: shielded,
           onChangeShielded: setShielded,
         }}
         gasConfig={gasConfig.data}

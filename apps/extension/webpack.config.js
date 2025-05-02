@@ -159,6 +159,13 @@ module.exports = {
   },
   module: {
     rules: [
+      // This is needed for webpack to resolve "../../.." in workerHelpers.js
+      {
+        test: /\.m?js$/,
+        resolve: {
+          fullySpecified: false,
+        },
+      },
       {
         test: /\.tsx?$/,
         loader: "ts-loader",

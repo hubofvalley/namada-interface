@@ -16,7 +16,9 @@ import {
   QueryTxDetailsMsg,
   RejectSignArbitraryMsg,
   RejectSignTxMsg,
+  ReplaceMaspSignaturesMsg,
   RevokeConnectionMsg,
+  SignMaspMsg,
   SubmitApprovedSignArbitraryMsg,
   SubmitApprovedSignLedgerTxMsg,
   SubmitApprovedSignTxMsg,
@@ -113,6 +115,13 @@ export const getHandler: (service: ApprovalsService) => Handler = (service) => {
           env,
           msg as SubmitApprovedSignLedgerTxMsg
         );
+      case ReplaceMaspSignaturesMsg:
+        return handleReplaceMaspSignaturesMsg(service)(
+          env,
+          msg as ReplaceMaspSignaturesMsg
+        );
+      case SignMaspMsg:
+        return handleSignMaspMsg(service)(env, msg as SignMaspMsg);
 
       default:
         throw new Error("Unknown msg type");
@@ -202,8 +211,8 @@ const handleSubmitUpdateDefaultAccountMsg: (
 const handleApproveSignTxMsg: (
   service: ApprovalsService
 ) => InternalHandler<ApproveSignTxMsg> = (service) => {
-  return async (_, { signer, tx, checksums }) => {
-    return await service.approveSignTx(signer, tx, checksums);
+  return async (_, { origin, signer, tx, checksums }) => {
+    return await service.approveSignTx(signer, tx, origin, checksums);
   };
 };
 
@@ -226,8 +235,8 @@ const handleSubmitApprovedSignTxMsg: (
 const handleApproveSignArbitraryMsg: (
   service: ApprovalsService
 ) => InternalHandler<ApproveSignArbitraryMsg> = (service) => {
-  return async (_, { signer, data }) => {
-    return await service.approveSignArbitrary(signer, data);
+  return async (_, { signer, data, origin }) => {
+    return await service.approveSignArbitrary(signer, data, origin);
   };
 };
 
@@ -276,6 +285,22 @@ const handleSubmitApprovedSignLedgerTxMsg: (
 ) => InternalHandler<SubmitApprovedSignLedgerTxMsg> = (service) => {
   return async ({ senderTabId: popupTabId }, { msgId, responseSign }) => {
     return await service.submitSignLedgerTx(popupTabId, msgId, responseSign);
+  };
+};
+
+const handleReplaceMaspSignaturesMsg: (
+  service: ApprovalsService
+) => InternalHandler<ReplaceMaspSignaturesMsg> = (service) => {
+  return async (_, { msgId, signatures }) => {
+    return await service.replaceMaspSignatures(msgId, signatures);
+  };
+};
+
+const handleSignMaspMsg: (
+  service: ApprovalsService
+) => InternalHandler<SignMaspMsg> = (service) => {
+  return async (_, { msgId, signer }) => {
+    return await service.signMasp(msgId, signer);
   };
 };
 

@@ -8,7 +8,8 @@ export const parseChainInfo = (
 ): Chain | undefined => {
   if (!chain) return undefined;
 
-  if (chain.chain_name !== "namada") {
+  // Includes namadacampfire, namadahousefire, etc.
+  if (chain.chain_name.indexOf("namada") === -1) {
     return chain;
   }
 
@@ -33,7 +34,7 @@ export const isShieldedAddress = (address: string): boolean => {
 };
 
 export const isTransparentAddress = (address: string): boolean => {
-  return address.startsWith("tnam");
+  return address.startsWith("tnam") && address.length === 45;
 };
 
 export const isNamadaAddress = (address: string): boolean => {

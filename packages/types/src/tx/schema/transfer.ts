@@ -11,6 +11,12 @@ import {
   UnshieldingTransferDataProps,
   UnshieldingTransferProps,
 } from "../types";
+import {
+  BparamsConvertMsgValue,
+  BparamsMsgValue,
+  BparamsOutputMsgValue,
+  BparamsSpendMsgValue,
+} from "./bparams";
 import { BigNumberSerializer } from "./utils";
 
 /**
@@ -75,13 +81,24 @@ export class ShieldedTransferMsgValue {
   @field({ type: option("string") })
   gasSpendingKey?: string;
 
-  constructor({ data, gasSpendingKey }: ShieldedTransferProps) {
+  @field({ type: option(vec(BparamsMsgValue)) })
+  bparams?: BparamsMsgValue[];
+
+  constructor({ data, gasSpendingKey, bparams }: ShieldedTransferProps) {
     Object.assign(this, {
       data: data.map(
         (shieldedTransferDataProps) =>
           new ShieldedTransferDataMsgValue(shieldedTransferDataProps)
       ),
       gasSpendingKey,
+
+      bparams: bparams?.map((bparam) => {
+        return new BparamsMsgValue({
+          spend: new BparamsSpendMsgValue(bparam.spend),
+          output: new BparamsOutputMsgValue(bparam.output),
+          convert: new BparamsConvertMsgValue(bparam.convert),
+        });
+      }),
     });
   }
 }
@@ -110,6 +127,9 @@ export class ShieldingTransferMsgValue {
 
   @field({ type: vec(ShieldingTransferDataMsgValue) })
   data!: ShieldingTransferDataMsgValue[];
+
+  @field({ type: option(vec(BparamsMsgValue)) })
+  bparams?: BparamsMsgValue[];
 
   constructor({ data, target }: ShieldingTransferProps) {
     Object.assign(this, {
@@ -150,7 +170,15 @@ export class UnshieldingTransferMsgValue {
   @field({ type: option("string") })
   gasSpendingKey?: string;
 
-  constructor({ source, data, gasSpendingKey }: UnshieldingTransferProps) {
+  @field({ type: option(vec(BparamsMsgValue)) })
+  bparams?: BparamsMsgValue[];
+
+  constructor({
+    source,
+    data,
+    gasSpendingKey,
+    bparams,
+  }: UnshieldingTransferProps) {
     Object.assign(this, {
       source,
       data: data.map(
@@ -158,6 +186,13 @@ export class UnshieldingTransferMsgValue {
           new UnshieldingTransferDataMsgValue(unshieldingTransferDataProps)
       ),
       gasSpendingKey,
+      bparams: bparams?.map((bparam) => {
+        return new BparamsMsgValue({
+          spend: new BparamsSpendMsgValue(bparam.spend),
+          output: new BparamsOutputMsgValue(bparam.output),
+          convert: new BparamsConvertMsgValue(bparam.convert),
+        });
+      }),
     });
   }
 }

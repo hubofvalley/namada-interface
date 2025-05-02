@@ -24,7 +24,6 @@ import {
   ActiveAccountStore,
   DeleteAccountError,
   MnemonicValidationResponse,
-  ParentAccount,
   UtilityStore,
 } from "./types";
 
@@ -62,6 +61,14 @@ export class KeyRingService {
     return await this._keyRing.revealMnemonic(accountId);
   }
 
+  async revealSpendingKey(accountId: string): Promise<string> {
+    return await this._keyRing.revealSpendingKey(accountId);
+  }
+
+  async revealPrivateKey(accountId: string): Promise<string> {
+    return await this._keyRing.revealPrivateKey(accountId);
+  }
+
   async saveAccountSecret(
     accountSecret: AccountSecret,
     alias: string,
@@ -82,7 +89,12 @@ export class KeyRingService {
     alias: string,
     address: string,
     publicKey: string,
-    bip44Path: Bip44Path
+    bip44Path: Bip44Path,
+    zip32Path?: Zip32Path,
+    extendedViewingKey?: string,
+    pseudoExtendedKey?: string,
+    paymentAddress?: string,
+    diversifierIndex?: number
   ): Promise<AccountStore | false> {
     const account = await this._keyRing.queryAccountByAddress(address);
     if (account) {
@@ -95,7 +107,12 @@ export class KeyRingService {
       alias,
       address,
       publicKey,
-      bip44Path
+      bip44Path,
+      zip32Path,
+      pseudoExtendedKey,
+      extendedViewingKey,
+      paymentAddress,
+      diversifierIndex
     );
 
     await this.broadcaster.updateAccounts();
@@ -131,6 +148,7 @@ export class KeyRingService {
     if (await this.vaultService.isLocked()) {
       throw new Error(ApprovalErrors.KeychainLocked());
     }
+
     return await this._keyRing.queryAllAccounts();
   }
 
@@ -180,7 +198,7 @@ export class KeyRingService {
     return account?.public ?? null;
   }
 
-  async setActiveAccount(id: string, type: ParentAccount): Promise<void> {
+  async setActiveAccount(id: string, type: AccountType): Promise<void> {
     await this._keyRing.setActiveAccount(id, type);
     await this.broadcaster.updateAccounts();
   }
@@ -199,7 +217,9 @@ export class KeyRingService {
     accountId: string,
     alias: string
   ): Promise<DerivedAccount> {
-    return await this._keyRing.renameAccount(accountId, alias);
+    const account = await this._keyRing.renameAccount(accountId, alias);
+    await this.broadcaster.updateAccounts();
+    return account;
   }
 
   async checkDurability(): Promise<boolean> {
@@ -209,6 +229,10 @@ export class KeyRingService {
   async sign(txProps: TxProps, signer: string): Promise<Uint8Array> {
     const chainId = await this.chainService.getChain();
     return await this._keyRing.sign(txProps, signer, chainId);
+  }
+
+  async signMasp(txProps: TxProps, signer: string): Promise<Uint8Array> {
+    return await this._keyRing.signMasp(txProps, signer);
   }
 
   async signArbitrary(
@@ -241,5 +265,29 @@ export class KeyRingService {
     GenDisposableSignerResponse | undefined
   > {
     return this._keyRing.genDisposableSigner();
+  }
+
+  async persistDisposableSigner(address: string): Promise<void> {
+    if (await this.vaultService.isLocked()) {
+      throw new Error(ApprovalErrors.KeychainLocked());
+    }
+
+    return this._keyRing.persistDisposableSigner(address);
+  }
+
+  async clearDisposableSigner(address: string): Promise<void> {
+    if (await this.vaultService.isLocked()) {
+      throw new Error(ApprovalErrors.KeychainLocked());
+    }
+
+    return this._keyRing.clearDisposableSigner(address);
+  }
+
+  async genPaymentAddress(
+    accountId: string
+  ): Promise<DerivedAccount | undefined> {
+    const account = await this._keyRing.genPaymentAddress(accountId);
+    await this.broadcaster.updateAccounts();
+    return account;
   }
 }

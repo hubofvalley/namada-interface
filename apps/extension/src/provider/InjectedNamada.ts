@@ -1,8 +1,10 @@
 import {
-  Account,
+  ClearDisposableSignerProps,
   GenDisposableSignerResponse,
   Namada as INamada,
   Signer as ISigner,
+  NamadaKeychainAccount,
+  PersistDisposableSignerProps,
   SignArbitraryProps,
   SignArbitraryResponse,
   SignProps,
@@ -32,12 +34,16 @@ export class InjectedNamada implements INamada {
     );
   }
 
-  public async accounts(): Promise<Account[]> {
-    return await InjectedProxy.requestMethod<string, Account[]>("accounts");
+  public async accounts(): Promise<NamadaKeychainAccount[]> {
+    return await InjectedProxy.requestMethod<string, NamadaKeychainAccount[]>(
+      "accounts"
+    );
   }
 
-  public async defaultAccount(): Promise<Account> {
-    return await InjectedProxy.requestMethod<string, Account>("defaultAccount");
+  public async defaultAccount(): Promise<NamadaKeychainAccount> {
+    return await InjectedProxy.requestMethod<string, NamadaKeychainAccount>(
+      "defaultAccount"
+    );
   }
 
   public async updateDefaultAccount(address: string): Promise<void> {
@@ -77,6 +83,24 @@ export class InjectedNamada implements INamada {
       void,
       GenDisposableSignerResponse | undefined
     >("genDisposableKeypair");
+  }
+
+  public async persistDisposableKeypair(
+    props: PersistDisposableSignerProps
+  ): Promise<void> {
+    return await InjectedProxy.requestMethod<
+      PersistDisposableSignerProps,
+      void
+    >("persistDisposableKeypair", props);
+  }
+
+  public async clearDisposableKeypair(
+    props: ClearDisposableSignerProps
+  ): Promise<void> {
+    return await InjectedProxy.requestMethod<ClearDisposableSignerProps, void>(
+      "clearDisposableKeypair",
+      props
+    );
   }
 
   public getSigner(): ISigner | undefined {

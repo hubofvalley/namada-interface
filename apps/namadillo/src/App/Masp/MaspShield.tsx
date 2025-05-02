@@ -10,21 +10,20 @@ import {
 import { allDefaultAccountsAtom } from "atoms/accounts";
 import { namadaTransparentAssetsAtom } from "atoms/balance/atoms";
 import { chainParametersAtom } from "atoms/chain/atoms";
+import { ledgerStatusDataAtom } from "atoms/ledger";
 import { rpcUrlAtom } from "atoms/settings";
 import BigNumber from "bignumber.js";
 import { useTransactionActions } from "hooks/useTransactionActions";
 import { useTransfer } from "hooks/useTransfer";
+import { useUrlState } from "hooks/useUrlState";
 import { wallets } from "integrations";
 import invariant from "invariant";
-import { useAtomValue } from "jotai";
+import { useAtom, useAtomValue } from "jotai";
 import { createTransferDataFromNamada } from "lib/transactions";
 import { useState } from "react";
-import { useSearchParams } from "react-router-dom";
 import namadaChain from "registry/namada.json";
-import { Address } from "types";
 
 export const MaspShield: React.FC = () => {
-  const [searchParams, setSearchParams] = useSearchParams();
   const { storeTransaction } = useTransactionActions();
   const [displayAmount, setDisplayAmount] = useState<BigNumber | undefined>();
   const [generalErrorMessage, setGeneralErrorMessage] = useState("");
@@ -34,11 +33,14 @@ export const MaspShield: React.FC = () => {
   const rpcUrl = useAtomValue(rpcUrlAtom);
   const chainParameters = useAtomValue(chainParametersAtom);
   const defaultAccounts = useAtomValue(allDefaultAccountsAtom);
-
+  const [ledgerStatus, setLedgerStatusStop] = useAtom(ledgerStatusDataAtom);
   const { data: availableAssets, isLoading: isLoadingAssets } = useAtomValue(
     namadaTransparentAssetsAtom
   );
-
+  const ledgerAccountInfo = ledgerStatus && {
+    deviceConnected: ledgerStatus.connected,
+    errorMessage: ledgerStatus.errorMessage,
+  };
   const chainId = chainParameters.data?.chainId;
   const sourceAddress = defaultAccounts.data?.find(
     (account) => account.type !== AccountType.ShieldedKeys
@@ -47,7 +49,9 @@ export const MaspShield: React.FC = () => {
     (account) => account.type === AccountType.ShieldedKeys
   )?.address;
 
-  const selectedAssetAddress = searchParams.get(params.asset) || undefined;
+  const [selectedAssetAddress, setSelectedAssetAddress] = useUrlState(
+    params.asset
+  );
   const selectedAsset =
     selectedAssetAddress ? availableAssets?.[selectedAssetAddress] : undefined;
 
@@ -58,6 +62,8 @@ export const MaspShield: React.FC = () => {
     error,
     txKind,
     feeProps,
+    completedAt,
+    redirectToTransactionPage,
   } = useTransfer({
     source: sourceAddress ?? "",
     target: destinationAddress ?? "",
@@ -73,30 +79,15 @@ export const MaspShield: React.FC = () => {
     onBeforeSign: () => {
       setCurrentStatus("Waiting for signature...");
     },
-    onBeforeBroadcast: () => {
+    onBeforeBroadcast: async () => {
       setCurrentStatus("Broadcasting Shielding transaction...");
     },
-    onError: () => {
+    onError: async () => {
       setCurrentStatus("");
       setCurrentStatusExplanation("");
     },
     asset: selectedAsset?.asset,
   });
-
-  const onChangeSelectedAsset = (address?: Address): void => {
-    setSearchParams(
-      (currentParams) => {
-        const newParams = new URLSearchParams(currentParams);
-        if (address) {
-          newParams.set(params.asset, address);
-        } else {
-          newParams.delete(params.asset);
-        }
-        return newParams;
-      },
-      { replace: false }
-    );
-  };
 
   const onSubmitTransfer = async ({
     memo,
@@ -135,15 +126,18 @@ export const MaspShield: React.FC = () => {
     }
   };
 
+  // We stop the ledger status check when the transfer is in progress
+  setLedgerStatusStop(isPerformingTransfer);
+
   return (
-    <Panel className="relative min-h-[600px] flex-1">
+    <Panel className="rounded-sm flex flex-col flex-1">
       <header className="flex flex-col items-center text-center mb-3 gap-6">
-        <h1 className="mt-6 text-lg text-yellow">Shield</h1>
+        <h1 className="mt-20 text-lg text-yellow">Shielding Transfer</h1>
         <NamadaTransferTopHeader
           isSourceShielded={false}
           isDestinationShielded={true}
         />
-        <h2 className="text-lg">Namada Transparent to Namada Shielded</h2>
+        <h2 className="text-sm">Shield assets into Namada&apos;s Shieldpool</h2>
       </header>
       <TransferModule
         source={{
@@ -155,16 +149,17 @@ export const MaspShield: React.FC = () => {
           availableWallets: [wallets.namada],
           wallet: wallets.namada,
           walletAddress: sourceAddress,
-          onChangeSelectedAsset,
+          onChangeSelectedAsset: setSelectedAssetAddress,
           amount: displayAmount,
           onChangeAmount: setDisplayAmount,
+          ledgerAccountInfo,
         }}
         destination={{
           chain: namadaChain as Chain,
           availableWallets: [wallets.namada],
           wallet: wallets.namada,
           walletAddress: destinationAddress,
-          isShielded: true,
+          isShieldedAddress: true,
         }}
         feeProps={feeProps}
         isSubmitting={isPerformingTransfer || isSuccess}
@@ -172,9 +167,11 @@ export const MaspShield: React.FC = () => {
         currentStatus={currentStatus}
         currentStatusExplanation={currentStatusExplanation}
         onSubmitTransfer={onSubmitTransfer}
+        completedAt={completedAt}
         buttonTextErrors={{
           NoAmount: "Define an amount to shield",
         }}
+        onComplete={redirectToTransactionPage}
       />
     </Panel>
   );

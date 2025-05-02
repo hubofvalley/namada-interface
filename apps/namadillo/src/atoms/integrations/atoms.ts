@@ -1,23 +1,18 @@
 import { AssetList, Chain } from "@chain-registry/types";
 import { DeliverTxResponse, SigningStargateClient } from "@cosmjs/stargate";
-import {
-  ExtensionKey,
-  IbcTransferMsgValue,
-  IbcTransferProps,
-} from "@namada/types";
+import { ExtensionKey } from "@namada/types";
 import { defaultAccountAtom } from "atoms/accounts";
-import { chainAtom } from "atoms/chain";
+import { chainAtom, chainTokensAtom } from "atoms/chain";
 import { defaultServerConfigAtom, settingsAtom } from "atoms/settings";
 import { queryDependentFn } from "atoms/utils";
+import BigNumber from "bignumber.js";
 import { TxRaw } from "cosmjs-types/cosmos/tx/v1beta1/tx";
 import invariant from "invariant";
 import { atom } from "jotai";
 import { atomWithMutation, atomWithQuery } from "jotai-tanstack-query";
 import { atomFamily, atomWithStorage } from "jotai/utils";
-import { EncodedTxData } from "lib/query";
 import {
   AddressWithAssetAndAmountMap,
-  BuildTxAtomParams,
   ChainId,
   ChainRegistryEntry,
   RpcStorage,
@@ -25,7 +20,7 @@ import {
 import { githubNamadaChainRegistryBaseUrl } from "urls";
 import {
   addLocalnetToRegistry,
-  createIbcTx,
+  getDenomFromIbcTrace,
   getKnownChains,
   ibcAddressToDenomTrace,
   IbcChannels,
@@ -34,6 +29,7 @@ import {
 import {
   broadcastIbcTransaction,
   fetchIbcChannelFromRegistry,
+  fetchIbcRateLimits,
   fetchLocalnetTomlConfig,
   queryAndStoreRpc,
   queryAssetBalances,
@@ -111,7 +107,7 @@ export const assetBalanceAtomFamily = atomFamily(
 export const chainRegistryAtom = atom<Record<ChainId, ChainRegistryEntry>>(
   (get) => {
     const settings = get(settingsAtom);
-    const knownChains = getKnownChains(settings.enableTestnets);
+    const knownChains = getKnownChains(settings.advancedMode);
     const map: Record<ChainId, ChainRegistryEntry> = {};
     knownChains.forEach((chain) => {
       map[chain.chain.chain_id] = chain;
@@ -123,13 +119,57 @@ export const chainRegistryAtom = atom<Record<ChainId, ChainRegistryEntry>>(
 // Lists only the available chain list
 export const availableChainsAtom = atom((get) => {
   const settings = get(settingsAtom);
-  return getKnownChains(settings.enableTestnets).map(({ chain }) => chain);
+  return getKnownChains(settings.advancedMode).map(({ chain }) => chain);
 });
 
 // Lists only the available assets list
 export const availableAssetsAtom = atom((get) => {
   const settings = get(settingsAtom);
-  return getKnownChains(settings.enableTestnets).map(({ assets }) => assets);
+  return getKnownChains(settings.advancedMode).map(({ assets }) => assets);
+});
+
+export const ibcRateLimitAtom = atomWithQuery((get) => {
+  const chainTokens = get(chainTokensAtom);
+  return {
+    queryKey: ["ibc-rate-limit", chainTokens],
+    ...queryDependentFn(async () => {
+      return await fetchIbcRateLimits();
+    }, [chainTokens]),
+  };
+});
+
+export const enabledIbcAssetsDenomFamily = atomFamily((ibcChannel?: string) => {
+  return atomWithQuery((get) => {
+    const chainTokens = get(chainTokensAtom);
+    const ibcRateLimits = get(ibcRateLimitAtom);
+    const defaultAccount = get(defaultAccountAtom);
+
+    return {
+      queryKey: ["availableAssets", defaultAccount, ibcChannel],
+      ...queryDependentFn(async () => {
+        const channelAvailableTokens = chainTokens.data!.filter((token) => {
+          if ("trace" in token) {
+            return token.trace.indexOf(ibcChannel + "/") >= 0;
+          }
+          return false;
+        });
+
+        const availableTokens: string[] = ["nam"];
+        channelAvailableTokens.forEach((token) => {
+          const ibcRateLimit = ibcRateLimits.data?.find(
+            (rateLimit) => rateLimit.tokenAddress === token.address
+          );
+          if (ibcRateLimit && BigNumber(ibcRateLimit.throughputLimit).gt(0)) {
+            if ("trace" in token) {
+              availableTokens.push(getDenomFromIbcTrace(token.trace));
+            }
+          }
+        });
+
+        return availableTokens;
+      }, [chainTokens, ibcRateLimits, defaultAccount, !!ibcChannel]),
+    };
+  });
 });
 
 export const ibcChannelsFamily = atomFamily((ibcChainName?: string) =>
@@ -151,51 +191,6 @@ export const ibcChannelsFamily = atomFamily((ibcChainName?: string) =>
     };
   })
 );
-
-export const createIbcTxAtom = atomWithMutation((get) => {
-  const account = get(defaultAccountAtom);
-  const chain = get(chainAtom);
-  return {
-    enabled: account.isSuccess && chain.isSuccess,
-    mutationKey: ["create-ibc-tx"],
-    mutationFn: async ({
-      params,
-      memo,
-      account,
-      gasConfig,
-    }: BuildTxAtomParams<IbcTransferMsgValue>): Promise<
-      EncodedTxData<IbcTransferProps> | undefined
-    > => {
-      if (typeof account === "undefined") {
-        throw new Error("no account");
-      }
-
-      if (params.length === 0) {
-        throw new Error("Invalid params");
-      }
-
-      const {
-        receiver: destinationAddress,
-        token,
-        amountInBaseDenom,
-        portId,
-        channelId,
-      } = params[0];
-
-      return await createIbcTx(
-        account,
-        destinationAddress,
-        token,
-        amountInBaseDenom,
-        portId,
-        channelId,
-        gasConfig,
-        chain.data!,
-        memo
-      );
-    },
-  };
-});
 
 export const localnetConfigAtom = atomWithQuery((get) => {
   const config = get(defaultServerConfigAtom);

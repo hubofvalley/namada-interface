@@ -14,10 +14,14 @@
 ### Classes
 
 - [Crypto](classes/Crypto.md)
+- [ExtendedViewingKey](classes/ExtendedViewingKey.md)
+- [Keys](classes/Keys.md)
 - [Ledger](classes/Ledger.md)
 - [Masp](classes/Masp.md)
 - [Mnemonic](classes/Mnemonic.md)
 - [ProgressBarNames](classes/ProgressBarNames.md)
+- [ProofGenerationKey](classes/ProofGenerationKey.md)
+- [PseudoExtendedKey](classes/PseudoExtendedKey.md)
 - [Rpc](classes/Rpc.md)
 - [Sdk](classes/Sdk.md)
 - [Signing](classes/Signing.md)
@@ -33,9 +37,11 @@
 - [DelegationTotals](modules.md#delegationtotals)
 - [DelegatorsVotes](modules.md#delegatorsvotes)
 - [EncryptionParams](modules.md#encryptionparams)
+- [GeneratedPaymentAddress](modules.md#generatedpaymentaddress)
 - [LedgerAddressAndPublicKey](modules.md#ledgeraddressandpublickey)
-- [LedgerShieldedKeys](modules.md#ledgershieldedkeys)
+- [LedgerProofGenerationKey](modules.md#ledgerproofgenerationkey)
 - [LedgerStatus](modules.md#ledgerstatus)
+- [LedgerViewingKey](modules.md#ledgerviewingkey)
 - [ShieldedKeys](modules.md#shieldedkeys)
 - [StakingPositions](modules.md#stakingpositions)
 - [StakingTotals](modules.md#stakingtotals)
@@ -46,13 +52,19 @@
 ### Variables
 
 - [Argon2Config](modules.md#argon2config)
+- [DEFAULT\_BIP44\_PATH](modules.md#default_bip44_path)
+- [DEFAULT\_ZIP32\_PATH](modules.md#default_zip32_path)
+- [LEDGER\_MASP\_BLACKLISTED](modules.md#ledger_masp_blacklisted)
+- [LEDGER\_MIN\_VERSION\_ZIP32](modules.md#ledger_min_version_zip32)
+- [MODIFIED\_ZIP32\_PATH](modules.md#modified_zip32_path)
 - [TxTypeLabel](modules.md#txtypelabel)
 
 ### Functions
 
-- [initLedgerHIDTransport](modules.md#initledgerhidtransport)
 - [initLedgerUSBTransport](modules.md#initledgerusbtransport)
+- [ledgerUSBList](modules.md#ledgerusblist)
 - [publicKeyToBech32](modules.md#publickeytobech32)
+- [requestLedgerDevice](modules.md#requestledgerdevice)
 
 ## Type Aliases
 
@@ -71,7 +83,7 @@ Address and public key type
 
 #### Defined in
 
-[sdk/src/keys/types.ts:4](https://github.com/anoma/namada-interface/blob/04cc0e2c5bbf957adca124841118cb1e5cb7bcab/packages/sdk/src/keys/types.ts#L4)
+[sdk/src/keys/types.ts:6](https://github.com/anoma/namada-interface/blob/dedbae7e806a646649051a09499b31d03fef0091/packages/sdk/src/keys/types.ts#L6)
 
 ___
 
@@ -81,7 +93,7 @@ ___
 
 #### Defined in
 
-[sdk/src/crypto/types.ts:23](https://github.com/anoma/namada-interface/blob/04cc0e2c5bbf957adca124841118cb1e5cb7bcab/packages/sdk/src/crypto/types.ts#L23)
+[sdk/src/crypto/types.ts:23](https://github.com/anoma/namada-interface/blob/dedbae7e806a646649051a09499b31d03fef0091/packages/sdk/src/crypto/types.ts#L23)
 
 ___
 
@@ -94,7 +106,7 @@ Balance
 
 #### Defined in
 
-[sdk/src/rpc/types.ts:69](https://github.com/anoma/namada-interface/blob/04cc0e2c5bbf957adca124841118cb1e5cb7bcab/packages/sdk/src/rpc/types.ts#L69)
+[sdk/src/rpc/types.ts:78](https://github.com/anoma/namada-interface/blob/dedbae7e806a646649051a09499b31d03fef0091/packages/sdk/src/rpc/types.ts#L78)
 
 ___
 
@@ -113,7 +125,7 @@ ___
 
 #### Defined in
 
-[sdk/src/rpc/types.ts:27](https://github.com/anoma/namada-interface/blob/04cc0e2c5bbf957adca124841118cb1e5cb7bcab/packages/sdk/src/rpc/types.ts#L27)
+[sdk/src/rpc/types.ts:27](https://github.com/anoma/namada-interface/blob/dedbae7e806a646649051a09499b31d03fef0091/packages/sdk/src/rpc/types.ts#L27)
 
 ___
 
@@ -141,7 +153,7 @@ ___
 
 #### Defined in
 
-[sdk/src/crypto/types.ts:42](https://github.com/anoma/namada-interface/blob/04cc0e2c5bbf957adca124841118cb1e5cb7bcab/packages/sdk/src/crypto/types.ts#L42)
+[sdk/src/crypto/types.ts:42](https://github.com/anoma/namada-interface/blob/dedbae7e806a646649051a09499b31d03fef0091/packages/sdk/src/crypto/types.ts#L42)
 
 ___
 
@@ -154,7 +166,7 @@ Record<address, totalDelegations>
 
 #### Defined in
 
-[sdk/src/rpc/types.ts:51](https://github.com/anoma/namada-interface/blob/04cc0e2c5bbf957adca124841118cb1e5cb7bcab/packages/sdk/src/rpc/types.ts#L51)
+[sdk/src/rpc/types.ts:60](https://github.com/anoma/namada-interface/blob/dedbae7e806a646649051a09499b31d03fef0091/packages/sdk/src/rpc/types.ts#L60)
 
 ___
 
@@ -167,7 +179,7 @@ Record<address, boolean>
 
 #### Defined in
 
-[sdk/src/rpc/types.ts:57](https://github.com/anoma/namada-interface/blob/04cc0e2c5bbf957adca124841118cb1e5cb7bcab/packages/sdk/src/rpc/types.ts#L57)
+[sdk/src/rpc/types.ts:66](https://github.com/anoma/namada-interface/blob/dedbae7e806a646649051a09499b31d03fef0091/packages/sdk/src/rpc/types.ts#L66)
 
 ___
 
@@ -186,7 +198,26 @@ ___
 
 #### Defined in
 
-[sdk/src/crypto/types.ts:30](https://github.com/anoma/namada-interface/blob/04cc0e2c5bbf957adca124841118cb1e5cb7bcab/packages/sdk/src/crypto/types.ts#L30)
+[sdk/src/crypto/types.ts:30](https://github.com/anoma/namada-interface/blob/dedbae7e806a646649051a09499b31d03fef0091/packages/sdk/src/crypto/types.ts#L30)
+
+___
+
+### GeneratedPaymentAddress
+
+Ƭ **GeneratedPaymentAddress**: `Object`
+
+Result of generating next payment address
+
+#### Type declaration
+
+| Name | Type |
+| :------ | :------ |
+| `address` | `string` |
+| `diversifierIndex` | `number` |
+
+#### Defined in
+
+[sdk/src/keys/types.ts:32](https://github.com/anoma/namada-interface/blob/dedbae7e806a646649051a09499b31d03fef0091/packages/sdk/src/keys/types.ts#L32)
 
 ___
 
@@ -203,29 +234,24 @@ ___
 
 #### Defined in
 
-[sdk/src/ledger.ts:19](https://github.com/anoma/namada-interface/blob/04cc0e2c5bbf957adca124841118cb1e5cb7bcab/packages/sdk/src/ledger.ts#L19)
+[sdk/src/ledger.ts:19](https://github.com/anoma/namada-interface/blob/dedbae7e806a646649051a09499b31d03fef0091/packages/sdk/src/ledger.ts#L19)
 
 ___
 
-### LedgerShieldedKeys
+### LedgerProofGenerationKey
 
-Ƭ **LedgerShieldedKeys**: `Object`
+Ƭ **LedgerProofGenerationKey**: `Object`
 
 #### Type declaration
 
 | Name | Type |
 | :------ | :------ |
-| `proofGenerationKey` | \{ `ak?`: `string` ; `nsk?`: `string`  } |
-| `proofGenerationKey.ak?` | `string` |
-| `proofGenerationKey.nsk?` | `string` |
-| `viewingKey` | \{ `ivk?`: `string` ; `ovk?`: `string` ; `viewKey?`: `string`  } |
-| `viewingKey.ivk?` | `string` |
-| `viewingKey.ovk?` | `string` |
-| `viewingKey.viewKey?` | `string` |
+| `ak` | `Uint8Array` |
+| `nsk` | `Uint8Array` |
 
 #### Defined in
 
-[sdk/src/ledger.ts:20](https://github.com/anoma/namada-interface/blob/04cc0e2c5bbf957adca124841118cb1e5cb7bcab/packages/sdk/src/ledger.ts#L20)
+[sdk/src/ledger.ts:23](https://github.com/anoma/namada-interface/blob/dedbae7e806a646649051a09499b31d03fef0091/packages/sdk/src/ledger.ts#L23)
 
 ___
 
@@ -237,12 +263,30 @@ ___
 
 | Name | Type |
 | :------ | :------ |
+| `deviceId?` | `string` |
+| `deviceName?` | `string` |
 | `info` | `ResponseAppInfo` |
 | `version` | `ResponseVersion` |
 
 #### Defined in
 
-[sdk/src/ledger.ts:32](https://github.com/anoma/namada-interface/blob/04cc0e2c5bbf957adca124841118cb1e5cb7bcab/packages/sdk/src/ledger.ts#L32)
+[sdk/src/ledger.ts:28](https://github.com/anoma/namada-interface/blob/dedbae7e806a646649051a09499b31d03fef0091/packages/sdk/src/ledger.ts#L28)
+
+___
+
+### LedgerViewingKey
+
+Ƭ **LedgerViewingKey**: `Object`
+
+#### Type declaration
+
+| Name | Type |
+| :------ | :------ |
+| `xfvk` | `Uint8Array` |
+
+#### Defined in
+
+[sdk/src/ledger.ts:20](https://github.com/anoma/namada-interface/blob/dedbae7e806a646649051a09499b31d03fef0091/packages/sdk/src/ledger.ts#L20)
 
 ___
 
@@ -257,13 +301,14 @@ Shielded keys and address
 | Name | Type |
 | :------ | :------ |
 | `address` | `string` |
+| `diversifierIndex` | `number` |
 | `pseudoExtendedKey` | `string` |
 | `spendingKey` | `string` |
 | `viewingKey` | `string` |
 
 #### Defined in
 
-[sdk/src/keys/types.ts:19](https://github.com/anoma/namada-interface/blob/04cc0e2c5bbf957adca124841118cb1e5cb7bcab/packages/sdk/src/keys/types.ts#L19)
+[sdk/src/keys/types.ts:21](https://github.com/anoma/namada-interface/blob/dedbae7e806a646649051a09499b31d03fef0091/packages/sdk/src/keys/types.ts#L21)
 
 ___
 
@@ -280,7 +325,7 @@ ___
 
 #### Defined in
 
-[sdk/src/rpc/types.ts:42](https://github.com/anoma/namada-interface/blob/04cc0e2c5bbf957adca124841118cb1e5cb7bcab/packages/sdk/src/rpc/types.ts#L42)
+[sdk/src/rpc/types.ts:42](https://github.com/anoma/namada-interface/blob/dedbae7e806a646649051a09499b31d03fef0091/packages/sdk/src/rpc/types.ts#L42)
 
 ___
 
@@ -300,7 +345,7 @@ ___
 
 #### Defined in
 
-[sdk/src/rpc/types.ts:19](https://github.com/anoma/namada-interface/blob/04cc0e2c5bbf957adca124841118cb1e5cb7bcab/packages/sdk/src/rpc/types.ts#L19)
+[sdk/src/rpc/types.ts:19](https://github.com/anoma/namada-interface/blob/dedbae7e806a646649051a09499b31d03fef0091/packages/sdk/src/rpc/types.ts#L19)
 
 ___
 
@@ -310,7 +355,7 @@ ___
 
 #### Defined in
 
-[shared/src/types.ts:3](https://github.com/anoma/namada-interface/blob/04cc0e2c5bbf957adca124841118cb1e5cb7bcab/packages/shared/src/types.ts#L3)
+[shared/src/types.ts:3](https://github.com/anoma/namada-interface/blob/dedbae7e806a646649051a09499b31d03fef0091/packages/shared/src/types.ts#L3)
 
 ___
 
@@ -322,7 +367,7 @@ Public and private keypair with address
 
 #### Defined in
 
-[sdk/src/keys/types.ts:12](https://github.com/anoma/namada-interface/blob/04cc0e2c5bbf957adca124841118cb1e5cb7bcab/packages/sdk/src/keys/types.ts#L12)
+[sdk/src/keys/types.ts:14](https://github.com/anoma/namada-interface/blob/dedbae7e806a646649051a09499b31d03fef0091/packages/sdk/src/keys/types.ts#L14)
 
 ___
 
@@ -342,7 +387,7 @@ ___
 
 #### Defined in
 
-[sdk/src/rpc/types.ts:34](https://github.com/anoma/namada-interface/blob/04cc0e2c5bbf957adca124841118cb1e5cb7bcab/packages/sdk/src/rpc/types.ts#L34)
+[sdk/src/rpc/types.ts:34](https://github.com/anoma/namada-interface/blob/dedbae7e806a646649051a09499b31d03fef0091/packages/sdk/src/rpc/types.ts#L34)
 
 ## Variables
 
@@ -360,7 +405,57 @@ ___
 
 #### Defined in
 
-[sdk/src/crypto/types.ts:3](https://github.com/anoma/namada-interface/blob/04cc0e2c5bbf957adca124841118cb1e5cb7bcab/packages/sdk/src/crypto/types.ts#L3)
+[sdk/src/crypto/types.ts:3](https://github.com/anoma/namada-interface/blob/dedbae7e806a646649051a09499b31d03fef0091/packages/sdk/src/crypto/types.ts#L3)
+
+___
+
+### DEFAULT\_BIP44\_PATH
+
+• `Const` **DEFAULT\_BIP44\_PATH**: `Bip44Path`
+
+#### Defined in
+
+[sdk/src/keys/types.ts:37](https://github.com/anoma/namada-interface/blob/dedbae7e806a646649051a09499b31d03fef0091/packages/sdk/src/keys/types.ts#L37)
+
+___
+
+### DEFAULT\_ZIP32\_PATH
+
+• `Const` **DEFAULT\_ZIP32\_PATH**: `Zip32Path`
+
+#### Defined in
+
+[sdk/src/keys/types.ts:49](https://github.com/anoma/namada-interface/blob/dedbae7e806a646649051a09499b31d03fef0091/packages/sdk/src/keys/types.ts#L49)
+
+___
+
+### LEDGER\_MASP\_BLACKLISTED
+
+• `Const` **LEDGER\_MASP\_BLACKLISTED**: ``"nanoS"``
+
+#### Defined in
+
+[sdk/src/ledger.ts:36](https://github.com/anoma/namada-interface/blob/dedbae7e806a646649051a09499b31d03fef0091/packages/sdk/src/ledger.ts#L36)
+
+___
+
+### LEDGER\_MIN\_VERSION\_ZIP32
+
+• `Const` **LEDGER\_MIN\_VERSION\_ZIP32**: ``"3.0.0"``
+
+#### Defined in
+
+[sdk/src/ledger.ts:35](https://github.com/anoma/namada-interface/blob/dedbae7e806a646649051a09499b31d03fef0091/packages/sdk/src/ledger.ts#L35)
+
+___
+
+### MODIFIED\_ZIP32\_PATH
+
+• `Const` **MODIFIED\_ZIP32\_PATH**: `Bip44Path`
+
+#### Defined in
+
+[sdk/src/keys/types.ts:43](https://github.com/anoma/namada-interface/blob/dedbae7e806a646649051a09499b31d03fef0091/packages/sdk/src/keys/types.ts#L43)
 
 ___
 
@@ -370,29 +465,9 @@ ___
 
 #### Defined in
 
-[shared/src/types.ts:28](https://github.com/anoma/namada-interface/blob/04cc0e2c5bbf957adca124841118cb1e5cb7bcab/packages/shared/src/types.ts#L28)
+[shared/src/types.ts:28](https://github.com/anoma/namada-interface/blob/dedbae7e806a646649051a09499b31d03fef0091/packages/shared/src/types.ts#L28)
 
 ## Functions
-
-### initLedgerHIDTransport
-
-▸ **initLedgerHIDTransport**(): `Promise`\<`default`\>
-
-Initialize HID transport
-
-#### Returns
-
-`Promise`\<`default`\>
-
-Transport object
-
-**`Async`**
-
-#### Defined in
-
-[sdk/src/ledger.ts:51](https://github.com/anoma/namada-interface/blob/04cc0e2c5bbf957adca124841118cb1e5cb7bcab/packages/sdk/src/ledger.ts#L51)
-
-___
 
 ### initLedgerUSBTransport
 
@@ -410,7 +485,27 @@ Transport object
 
 #### Defined in
 
-[sdk/src/ledger.ts:42](https://github.com/anoma/namada-interface/blob/04cc0e2c5bbf957adca124841118cb1e5cb7bcab/packages/sdk/src/ledger.ts#L42)
+[sdk/src/ledger.ts:57](https://github.com/anoma/namada-interface/blob/dedbae7e806a646649051a09499b31d03fef0091/packages/sdk/src/ledger.ts#L57)
+
+___
+
+### ledgerUSBList
+
+▸ **ledgerUSBList**(): `Promise`\<`USBDevice`[]\>
+
+Returns a list of ledger devices
+
+#### Returns
+
+`Promise`\<`USBDevice`[]\>
+
+List of USB devices
+
+**`Async`**
+
+#### Defined in
+
+[sdk/src/ledger.ts:66](https://github.com/anoma/namada-interface/blob/dedbae7e806a646649051a09499b31d03fef0091/packages/sdk/src/ledger.ts#L66)
 
 ___
 
@@ -430,4 +525,24 @@ ___
 
 #### Defined in
 
-[sdk/src/keys/keys.ts:245](https://github.com/anoma/namada-interface/blob/04cc0e2c5bbf957adca124841118cb1e5cb7bcab/packages/sdk/src/keys/keys.ts#L245)
+[sdk/src/keys/keys.ts:281](https://github.com/anoma/namada-interface/blob/dedbae7e806a646649051a09499b31d03fef0091/packages/sdk/src/keys/keys.ts#L281)
+
+___
+
+### requestLedgerDevice
+
+▸ **requestLedgerDevice**(): `Promise`\<`default`\>
+
+Request ledger device - opens a popup to request the user to connect a ledger device
+
+#### Returns
+
+`Promise`\<`default`\>
+
+Transport object
+
+**`Async`**
+
+#### Defined in
+
+[sdk/src/ledger.ts:75](https://github.com/anoma/namada-interface/blob/dedbae7e806a646649051a09499b31d03fef0091/packages/sdk/src/ledger.ts#L75)

@@ -30,7 +30,6 @@ import * as t from "io-ts";
 import { TransactionPair, buildTx, signEncodedTx } from "lib/query";
 import { GasConfig } from "types";
 
-import { fromHex } from "@cosmjs/encoding";
 import { ChainSettings } from "types";
 import { getSdkInstance } from "utils/sdk";
 
@@ -83,10 +82,9 @@ const decodeProposalType = (
       if (typeof data === "undefined") {
         throw new Error("data was undefined for default_with_wasm proposal");
       }
-      const dataBytes = fromHex(data);
       return {
         type: "default_with_wasm",
-        data: dataBytes,
+        data,
       };
     case IndexerProposalTypeEnum.PgfSteward:
       if (typeof data === "undefined") {
@@ -255,6 +253,19 @@ export const fetchProposalById = async (
   return toProposal(proposalResponse.data, votingPowerResponse.data);
 };
 
+export const fetchProposalDataById = async (
+  api: DefaultApi,
+  id: bigint
+): Promise<string> => {
+  const totalVotingPowerPromise = await api.apiV1GovProposalIdDataGet(
+    Number(id)
+  );
+
+  // TODO: fix after fixing swagger return type
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return totalVotingPowerPromise.data as any as string;
+};
+
 const fromIndexerStatus = (
   indexerProposalStatus: IndexerProposalStatusEnum
 ): ProposalStatus => {
@@ -265,8 +276,11 @@ const fromIndexerStatus = (
       return "ongoing";
     case IndexerProposalStatusEnum.Passed:
       return "passed";
+    case IndexerProposalStatusEnum.ExecutedRejected:
     case IndexerProposalStatusEnum.Rejected:
       return "rejected";
+    case IndexerProposalStatusEnum.ExecutedPassed:
+      return "executed";
     default:
       return assertNever(indexerProposalStatus);
   }
@@ -284,6 +298,8 @@ const toIndexerStatus = (
       return ApiIndexerProposalStatusEnum.Passed;
     case "rejected":
       return ApiIndexerProposalStatusEnum.Rejected;
+    case "executed":
+      return ApiIndexerProposalStatusEnum.ExecutedPassed;
     default:
       return assertNever(proposalStatus);
   }

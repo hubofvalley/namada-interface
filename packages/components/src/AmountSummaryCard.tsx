@@ -1,8 +1,6 @@
 import clsx from "clsx";
 import { createElement } from "react";
 import { twMerge } from "tailwind-merge";
-import { SkeletonLoading } from "./SkeletonLoading";
-import { Stack } from "./Stack";
 
 type AmountSummaryCardProps = {
   as?: keyof JSX.IntrinsicElements;
@@ -14,6 +12,7 @@ type AmountSummaryCardProps = {
   callToAction: React.ReactNode;
   className?: string;
   isLoading?: boolean;
+  isSuccess?: boolean;
 };
 
 export const AmountSummaryCard = ({
@@ -25,7 +24,6 @@ export const AmountSummaryCard = ({
   extra,
   callToAction,
   className = "",
-  isLoading = false,
 }: AmountSummaryCardProps): JSX.Element => {
   return createElement(
     as,
@@ -53,28 +51,19 @@ export const AmountSummaryCard = ({
         )}
       </header>
 
-      {isLoading && (
-        <Stack gap={2.5} className="h-[76px] items-center">
-          <SkeletonLoading height="26px" width="100px" />
-          <SkeletonLoading height="16px" width="50px" />
-        </Stack>
-      )}
+      <div className="text-center flex-1">
+        <strong className="block text-[22px] text-white font-medium">
+          {mainAmount ?? "-"}
+        </strong>
 
-      {!isLoading && (
-        <div className="text-center flex-1">
-          {mainAmount && (
-            <strong className="block text-[22px] text-white font-medium">
-              {mainAmount}
-            </strong>
-          )}
-          {alternativeAmount && (
-            <span className="block text-base text-neutral-500 font-medium">
-              {alternativeAmount}
-            </span>
-          )}
-          {extra}
-        </div>
-      )}
+        {alternativeAmount && (
+          <span className="block text-base text-neutral-500 font-medium">
+            {alternativeAmount}
+          </span>
+        )}
+
+        {extra}
+      </div>
 
       <footer className="flex flex-col items-center mx-auto">
         {callToAction}

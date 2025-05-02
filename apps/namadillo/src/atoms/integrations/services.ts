@@ -10,6 +10,7 @@ import {
   StdFee,
 } from "@cosmjs/stargate";
 import {
+  IbcRateLimit,
   WrapperTransaction,
   WrapperTransactionExitCodeEnum,
 } from "@namada/indexer-client";
@@ -122,10 +123,14 @@ export const queryAssetBalances = async (
 
 export const createStargateClient = async (
   rpc: string,
-  chain: Chain
+  { chain_id: chainId }: Chain
 ): Promise<SigningStargateClient> => {
   const keplr = getKeplrWallet();
-  const signer = keplr.getOfflineSigner(chain.chain_id);
+  const { isNanoLedger } = await keplr.getKey(chainId);
+  const signer =
+    isNanoLedger ?
+      keplr.getOfflineSignerOnlyAmino(chainId)
+    : keplr.getOfflineSigner(chainId);
   return await SigningStargateClient.connectWithSigner(rpc, signer, {
     broadcastPollIntervalMs: 300,
     broadcastTimeoutMs: 8_000,
@@ -400,4 +405,10 @@ export const transactionTypeToEventName = (
     case "IbcToTransparent":
       return "IbcTransfer";
   }
+};
+
+export const fetchIbcRateLimits = async (): Promise<IbcRateLimit[]> => {
+  const api = getIndexerApi();
+  const response = await api.apiV1IbcRateLimitsGet();
+  return response.data;
 };

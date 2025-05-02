@@ -26,6 +26,8 @@ export enum AccountType {
   ShieldedKeys = "shielded-keys",
   // Ledger account
   Ledger = "ledger",
+  // Disposable
+  Disposable = "disposable",
 }
 
 export type DerivedAccount = {
@@ -41,6 +43,7 @@ export type DerivedAccount = {
   pseudoExtendedKey?: string;
   source?: "imported" | "generated";
   timestamp?: number;
+  diversifierIndex?: number;
 };
 
 export type Account = Pick<
@@ -53,8 +56,14 @@ export type Account = Pick<
   | "pseudoExtendedKey"
   | "source"
   | "timestamp"
+  | "diversifierIndex"
 > & {
   viewingKey?: string;
+};
+
+export type NamadaKeychainAccount = Account & {
+  id: string;
+  parentId?: string;
 };
 
 /**

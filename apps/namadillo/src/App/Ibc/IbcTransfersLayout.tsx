@@ -1,4 +1,5 @@
 import { Panel, TabContainer } from "@namada/components";
+import { NavigationFooter } from "App/AccountOverview/NavigationFooter";
 import { ConnectPanel } from "App/Common/ConnectPanel";
 import { PageWithSidebar } from "App/Common/PageWithSidebar";
 import { Sidebar } from "App/Layout/Sidebar";
@@ -6,6 +7,7 @@ import { routes } from "App/routes";
 import { ShieldAllBanner } from "App/Sidebars/ShieldAllBanner";
 import { useUserHasAccount } from "hooks/useIsAuthenticated";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
+import { LearnAboutIbc } from "./LearnAboutIbc";
 
 export const IbcTransfersLayout = (): JSX.Element => {
   const userHasAccount = useUserHasAccount();
@@ -17,7 +19,7 @@ export const IbcTransfersLayout = (): JSX.Element => {
   }
 
   const renderOutletContent = (): JSX.Element => (
-    <Panel className="pt-8 pb-20">
+    <Panel className="py-20 rounded-t-none h-full">
       <Outlet />
     </Panel>
   );
@@ -32,20 +34,23 @@ export const IbcTransfersLayout = (): JSX.Element => {
 
   return (
     <PageWithSidebar>
-      <div>
+      <div className="flex flex-col flex-1">
         <TabContainer
           id="ibc-transfer"
           title="IBC Transfer"
+          containerClassname="h-full flex-1"
           activeTabIndex={getActiveTabIndex()}
           onChangeActiveTab={handleTabChange}
           tabs={[
-            { title: "To Namada", children: renderOutletContent() },
-            { title: "From Namada", children: renderOutletContent() },
+            { title: "Deposit", children: renderOutletContent() },
+            { title: "Withdraw", children: renderOutletContent() },
           ]}
         />
+        <NavigationFooter className="mt-2 flex-none h-16" />
       </div>
       <Sidebar>
         <ShieldAllBanner />
+        <LearnAboutIbc />
       </Sidebar>
     </PageWithSidebar>
   );

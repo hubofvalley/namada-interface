@@ -1,6 +1,7 @@
 import { ActionButton, ActionButtonProps } from "@namada/components";
 import clsx from "clsx";
 import { twMerge } from "tailwind-merge";
+import { colors } from "./theme";
 
 type TabContents = {
   title: React.ReactNode;
@@ -13,6 +14,8 @@ type TabContainerProps = {
   activeTabIndex: number;
   onChangeActiveTab: (index: number) => void;
   tabs: TabContents[];
+  containerClassname?: string;
+  tabGap?: string;
 } & ActionButtonProps<"button">;
 
 export const TabContainer = ({
@@ -21,11 +24,17 @@ export const TabContainer = ({
   activeTabIndex,
   onChangeActiveTab,
   tabs,
+  containerClassname,
+  tabGap,
   ...buttonProps
 }: TabContainerProps): JSX.Element => {
   return (
-    <div>
-      <div role="tablist" aria-label={title} className="flex">
+    <>
+      <div
+        role="tablist"
+        aria-label={title}
+        className={clsx("flex", tabGap && `gap-${tabGap}`)}
+      >
         {tabs.map((tab: TabContents, index: number) => (
           <ActionButton
             key={index}
@@ -36,17 +45,28 @@ export const TabContainer = ({
             tabIndex={activeTabIndex === index ? 0 : -1} // Only the active tab is focusable
             onClick={() => onChangeActiveTab(index)}
             size="md"
-            backgroundColor="black"
-            textHoverColor="white"
+            style={
+              {
+                "--color":
+                  activeTabIndex !== index ? colors.neutral[900] : colors.black,
+                "--hover":
+                  activeTabIndex !== index ? colors.neutral[900] : colors.black,
+                "--text-color": colors.white,
+                "--text-hover-color": colors.white,
+              } as React.CSSProperties
+            }
             {...buttonProps}
             className={twMerge(
-              clsx("text-white py-4", {
-                "opacity-50": activeTabIndex !== index,
-              }),
+              clsx("py-4 rounded-b-none"),
               buttonProps.className
             )}
           >
-            {tab.title}
+            <span className="inline-flex flex-col">
+              {tab.title}
+              {activeTabIndex === index && (
+                <span className="w-full h-px bg-current" />
+              )}
+            </span>
           </ActionButton>
         ))}
       </div>
@@ -55,6 +75,7 @@ export const TabContainer = ({
       {tabs.map((tab: TabContents, index: number) => (
         <div
           key={index}
+          className={containerClassname}
           id={`tabpanel-${id}-${index}`}
           role="tabpanel"
           aria-labelledby={`tab-${id}-${index}`}
@@ -63,6 +84,6 @@ export const TabContainer = ({
           {tab.children}
         </div>
       ))}
-    </div>
+    </>
   );
 };

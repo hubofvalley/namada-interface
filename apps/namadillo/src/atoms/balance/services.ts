@@ -13,6 +13,12 @@ import ShieldedSyncWorker from "workers/ShieldedSyncWorker?worker";
 // TODO: move to @namada/types?
 import { DefaultApi } from "@namada/indexer-client";
 import { DatedViewingKey } from "@namada/types";
+import BigNumber from "bignumber.js";
+import {
+  Worker as MaspTxWorkerApi,
+  registerTransferHandlers,
+} from "workers/MaspTxWorker";
+import MaspTxWorker from "workers/MaspTxWorker?worker";
 
 export type ShieldedSyncEventMap = {
   [SdkEvents.ProgressBarStarted]: ProgressBarStarted[];
@@ -105,21 +111,54 @@ export const fetchBlockHeightByTimestamp = async (
   return Number(response.data.height);
 };
 
-export const fetchShieldRewards = async (
+export const fetchShieldedRewards = async (
   viewingKey: DatedViewingKey,
-  chainId: string
+  chainId: string,
+  rpcUrl: string
 ): Promise<string> => {
+  registerTransferHandlers();
   const sdk = await getSdkInstance();
+  const worker = new MaspTxWorker();
+  const workerLink = Comlink.wrap<MaspTxWorkerApi>(worker);
+  await workerLink.init({
+    type: "init",
+    payload: { rpcUrl, token: sdk.nativeToken, maspIndexerUrl: "" },
+  });
 
-  return await sdk.rpc.shieldedRewards(viewingKey.key, chainId);
+  const { payload: rewards } = await workerLink.shieldedRewards({
+    type: "shielded-rewards",
+    payload: {
+      viewingKey: viewingKey.key,
+      chainId,
+    },
+  });
+
+  return rewards;
 };
 
-export const simulateRewardPerToken = async (
+export const fetchShieldedRewardsPerToken = async (
+  viewingKey: DatedViewingKey,
+  tokens: string[],
   chainId: string,
-  token: string,
-  amount: string
-): Promise<string> => {
+  rpcUrl: string
+): Promise<Record<string, BigNumber>> => {
+  registerTransferHandlers();
   const sdk = await getSdkInstance();
+  const worker = new MaspTxWorker();
+  const workerLink = Comlink.wrap<MaspTxWorkerApi>(worker);
+  await workerLink.init({
+    type: "init",
+    payload: { rpcUrl, token: sdk.nativeToken, maspIndexerUrl: "" },
+  });
 
-  return await sdk.rpc.simulateShieldedRewards(chainId, token, amount);
+  const { payload: rewards } = await workerLink.shieldedRewardsPerToken({
+    type: "shielded-rewards-per-token",
+    payload: {
+      viewingKey: viewingKey.key,
+      tokens,
+      chainId,
+    },
+  });
+
+  return rewards;
 };

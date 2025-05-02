@@ -1,9 +1,11 @@
 import {
-  Account,
   AccountType,
+  ClearDisposableSignerProps,
   DerivedAccount,
   GenDisposableSignerResponse,
   Namada as INamada,
+  NamadaKeychainAccount,
+  PersistDisposableSignerProps,
   SignArbitraryProps,
   SignArbitraryResponse,
   SignProps,
@@ -19,8 +21,10 @@ import {
   ApproveSignTxMsg,
   ApproveUpdateDefaultAccountMsg,
   CheckDurabilityMsg,
+  ClearDisposableSignerMsg,
   GenDisposableSignerMsg,
   IsConnectionApprovedMsg,
+  PersistDisposableSignerMsg,
   QueryAccountsMsg,
   QueryDefaultAccountMsg,
   VerifyArbitraryMsg,
@@ -57,7 +61,7 @@ export class Namada implements INamada {
     );
   }
 
-  public async accounts(): Promise<Account[] | undefined> {
+  public async accounts(): Promise<NamadaKeychainAccount[] | undefined> {
     const accounts: DerivedAccount[] = [];
     const allAccounts = await this.requester?.sendMessage(
       Ports.Background,
@@ -82,7 +86,7 @@ export class Namada implements INamada {
     return accounts?.map(toPublicAccount);
   }
 
-  public async defaultAccount(): Promise<Account | undefined> {
+  public async defaultAccount(): Promise<NamadaKeychainAccount | undefined> {
     return await this.requester
       ?.sendMessage(Ports.Background, new QueryDefaultAccountMsg())
       .then((defaultAccount) => {
@@ -128,6 +132,24 @@ export class Namada implements INamada {
     return await this.requester?.sendMessage(
       Ports.Background,
       new GenDisposableSignerMsg()
+    );
+  }
+
+  public async persistDisposableKeypair({
+    address,
+  }: PersistDisposableSignerProps): Promise<void> {
+    return await this.requester?.sendMessage(
+      Ports.Background,
+      new PersistDisposableSignerMsg(address)
+    );
+  }
+
+  public async clearDisposableKeypair({
+    address,
+  }: ClearDisposableSignerProps): Promise<void> {
+    return await this.requester?.sendMessage(
+      Ports.Background,
+      new ClearDisposableSignerMsg(address)
     );
   }
 

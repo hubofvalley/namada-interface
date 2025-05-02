@@ -76,6 +76,7 @@ export type ChainParameters = {
   nativeTokenAddress: Address;
   unbondingPeriod: string;
   checksums: Record<string, string>;
+  maxBlockTime: number;
 };
 
 export type SettingsStorage = {
@@ -84,7 +85,7 @@ export type SettingsStorage = {
   indexerUrl: string;
   maspIndexerUrl?: string;
   signArbitraryEnabled: boolean;
-  enableTestnets?: boolean;
+  advancedMode?: boolean;
 };
 
 export type RpcStorage = {
@@ -309,6 +310,7 @@ export const transparentTransferTypes: Array<keyof AllTransferStages> = [
   "TransparentToIbc",
   "TransparentToTransparent",
   "IbcToTransparent",
+  "TransparentToShielded",
 ] as const;
 
 export const ibcTransferTypes: Array<keyof AllTransferStages> = [
@@ -392,4 +394,17 @@ export type LocalnetToml = {
   token_address: string;
   chain_1_channel: string;
   chain_2_channel: string;
+};
+
+export type LedgerAccountInfo = {
+  deviceConnected: boolean;
+  errorMessage: string;
+};
+
+export type MaspAssetRewards = {
+  asset: Asset;
+  kdGain: BigNumber;
+  kpGain: BigNumber;
+  lockedAmountTarget: BigNumber;
+  maxRewardRate: BigNumber;
 };

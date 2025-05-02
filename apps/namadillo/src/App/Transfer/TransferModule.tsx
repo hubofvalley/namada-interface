@@ -1,7 +1,9 @@
-import { Asset, Chain, Chains } from "@chain-registry/types";
+import { Chain, Chains } from "@chain-registry/types";
 import { ActionButton, Stack } from "@namada/components";
 import { mapUndefined } from "@namada/utils";
+import { IconTooltip } from "App/Common/IconTooltip";
 import { InlineError } from "App/Common/InlineError";
+import { routes } from "App/routes";
 import { chainAssetsMapAtom } from "atoms/chain";
 import BigNumber from "bignumber.js";
 import clsx from "clsx";
@@ -9,18 +11,25 @@ import { useKeychainVersion } from "hooks/useKeychainVersion";
 import { TransactionFeeProps } from "hooks/useTransactionFee";
 import { wallets } from "integrations";
 import { useAtomValue } from "jotai";
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
+import { BsQuestionCircleFill } from "react-icons/bs";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   Address,
   AddressWithAssetAndAmount,
   AddressWithAssetAndAmountMap,
   GasConfig,
+  LedgerAccountInfo,
   WalletProvider,
 } from "types";
 import { filterAvailableAsssetsWithBalance } from "utils/assets";
 import { checkKeychainCompatibleWithMasp } from "utils/compatibility";
 import { getDisplayGasFee } from "utils/gas";
-import { parseChainInfo } from "./common";
+import {
+  isShieldedAddress,
+  isTransparentAddress,
+  parseChainInfo,
+} from "./common";
 import { CurrentStatus } from "./CurrentStatus";
 import { IbcChannels } from "./IbcChannels";
 import { SelectAssetModal } from "./SelectAssetModal";
@@ -38,10 +47,12 @@ type TransferModuleConfig = {
   connected?: boolean;
   availableChains?: Chains;
   chain?: Chain;
-  isShielded?: boolean;
+  isShieldedAddress?: boolean;
   onChangeWallet?: (wallet: WalletProvider) => void;
   onChangeChain?: (chain: Chain) => void;
   onChangeShielded?: (isShielded: boolean) => void;
+  // Additional information if selected account is a ledger
+  ledgerAccountInfo?: LedgerAccountInfo;
 };
 
 export type TransferSourceProps = TransferModuleConfig & {
@@ -88,6 +99,7 @@ export type TransferModuleProps = {
   currentStatus?: string;
   currentStatusExplanation?: string;
   completedAt?: Date;
+  isShieldedTx?: boolean;
   buttonTextErrors?: Partial<Record<ValidationResult, string>>;
   onComplete?: () => void;
 } & (
@@ -106,7 +118,38 @@ type ValidationResult =
   | "NotEnoughBalance"
   | "NotEnoughBalanceForFees"
   | "KeychainNotCompatibleWithMasp"
+  | "CustomAddressNotMatchingChain"
+  | "NoLedgerConnected"
   | "Ok";
+
+// Check if the provided address is valid for the destination chain and transaction type
+const isValidDestinationAddress = ({
+  customAddress,
+  chain,
+  shielded,
+}: {
+  customAddress: string;
+  chain: Chain | undefined;
+  shielded: boolean;
+}): boolean => {
+  // Skip validation if no custom address or chain provided
+  if (!customAddress || !chain) return true;
+
+  // Check shielded/transparent address requirements for Namada
+  if (chain.bech32_prefix === "nam") {
+    // If shielded is required but address is transparent, validation fails
+    if (shielded && isTransparentAddress(customAddress)) return false;
+    // If transparent is required but address is shielded, validation fails
+    if (!shielded && isShieldedAddress(customAddress)) return false;
+    // Valid Namada address that matches transaction type
+    return (
+      isTransparentAddress(customAddress) || isShieldedAddress(customAddress)
+    );
+  }
+
+  // For non-Namada chains, validate using prefix
+  return customAddress.startsWith(chain.bech32_prefix);
+};
 
 export const TransferModule = ({
   source,
@@ -126,7 +169,10 @@ export const TransferModule = ({
   completedAt,
   onComplete,
   buttonTextErrors = {},
+  isShieldedTx = false,
 }: TransferModuleProps): JSX.Element => {
+  const navigate = useNavigate();
+  const location = useLocation();
   const [walletSelectorModalOpen, setWalletSelectorModalOpen] = useState(false);
   const [sourceChainModalOpen, setSourceChainModalOpen] = useState(false);
   const [destinationChainModalOpen, setDestinationChainModalOpen] =
@@ -135,10 +181,10 @@ export const TransferModule = ({
   const [customAddressActive, setCustomAddressActive] = useState(
     destination.enableCustomAddress && !destination.availableWallets
   );
-  const chainAssetsMap = useAtomValue(chainAssetsMapAtom);
-  const keychainVersion = useKeychainVersion();
-
   const [memo, setMemo] = useState<undefined | string>();
+  const keychainVersion = useKeychainVersion();
+  const chainAssetsMap = useAtomValue(chainAssetsMapAtom);
+  const allUsersAssets = Object.values(chainAssetsMap) ?? [];
   const gasConfig = gasConfigProp ?? feeProps?.gasConfig;
 
   const displayGasFee = useMemo(() => {
@@ -184,7 +230,15 @@ export const TransferModule = ({
     if (!source.wallet) {
       return "NoSourceWallet";
     } else if (
-      (source.isShielded || destination.isShielded) &&
+      !isValidDestinationAddress({
+        customAddress: destination.customAddress ?? "",
+        chain: destination.chain,
+        shielded: isShieldedTx,
+      })
+    ) {
+      return "CustomAddressNotMatchingChain";
+    } else if (
+      (source.isShieldedAddress || destination.isShieldedAddress) &&
       keychainVersion &&
       !checkKeychainCompatibleWithMasp(keychainVersion)
     ) {
@@ -206,6 +260,12 @@ export const TransferModule = ({
       return "NotEnoughBalance";
     } else if (!destination.wallet && !destination.customAddress) {
       return "NoDestinationWallet";
+    } else if (
+      (source.isShieldedAddress || destination.isShieldedAddress) &&
+      source.ledgerAccountInfo &&
+      !source.ledgerAccountInfo.deviceConnected
+    ) {
+      return "NoLedgerConnected";
     } else {
       return "Ok";
     }
@@ -288,43 +348,32 @@ export const TransferModule = ({
     return assetDisplayAmount.gt(feeDisplayAmount);
   }
 
-  const findTokenFeeIndex = (chain: Chain, asset: Asset): number => {
-    if (!chain.fees) return -1;
-    return chain.fees.fee_tokens.findIndex((token) => {
-      const lastPart = token.denom.split("/").pop();
-      if (!lastPart) return false;
-      return lastPart.toLowerCase() === asset.base.toLowerCase();
+  const chainAcceptedAssets = useMemo(() => {
+    // Get available assets that are accepted by the chain
+    return Object.values(availableAssets).filter(({ asset }) => {
+      if (!source.chain) return true;
+      return allUsersAssets.some(
+        (chainAsset) =>
+          chainAsset?.symbol.toLowerCase() === asset?.symbol.toLowerCase()
+      );
     });
-  };
+  }, [availableAssets, source.chain, allUsersAssets]);
 
   const sortedAssets = useMemo(() => {
-    if (!availableAssets) {
+    if (!chainAcceptedAssets.length) {
       return [];
     }
 
-    return Object.values(availableAssets).sort(
+    // Sort filtered assets by amount
+    return [...chainAcceptedAssets].sort(
       (
         asset1: AddressWithAssetAndAmount,
         asset2: AddressWithAssetAndAmount
       ) => {
-        if (!source.chain) {
-          return 0;
-        }
-
-        const asset1Index = findTokenFeeIndex(source.chain, asset1.asset);
-        const asset2Index = findTokenFeeIndex(source.chain, asset2.asset);
-
-        // No fee assets, so we sort them by the amounts owned by the user
-        if (asset1Index === -1 && asset2Index === -1)
-          return asset1.amount.gt(asset2.amount) ? -1 : 1;
-
-        if (asset1Index === -1) return 1;
-        if (asset2Index === -1) return -1;
-
-        return asset1Index - asset2Index;
+        return asset1.amount.gt(asset2.amount) ? -1 : 1;
       }
     );
-  }, [availableAssets, source.chain]);
+  }, [chainAcceptedAssets]);
 
   const getButtonTextError = (
     id: ValidationResult,
@@ -337,7 +386,7 @@ export const TransferModule = ({
     return defaultText;
   };
 
-  const getButtonText = (): string => {
+  const getButtonText = (): string | JSX.Element => {
     if (isSubmitting) {
       return submittingText || "Submitting...";
     }
@@ -353,7 +402,6 @@ export const TransferModule = ({
 
       case "NoSelectedAsset":
         return getText("Select Asset");
-
       case "NoDestinationWallet":
         return getText("Select Destination Wallet");
 
@@ -363,14 +411,16 @@ export const TransferModule = ({
       case "NoTransactionFee":
         return getText("No transaction fee is set");
 
+      case "CustomAddressNotMatchingChain":
+        return getText("Custom address does not match chain");
       case "NotEnoughBalance":
         return getText("Not enough balance");
-
       case "NotEnoughBalanceForFees":
         return getText("Not enough balance to pay for transaction fees");
-
       case "KeychainNotCompatibleWithMasp":
         return getText("Keychain is not compatible with MASP");
+      case "NoLedgerConnected":
+        return getText("Connect your ledger and open the Namada App");
     }
 
     if (!availableAmountMinusFees) {
@@ -381,7 +431,37 @@ export const TransferModule = ({
   };
 
   const buttonColor =
-    destination.isShielded || source.isShielded ? "yellow" : "white";
+    destination.isShieldedAddress || source.isShieldedAddress ?
+      "yellow"
+    : "white";
+
+  const renderLedgerTooltip = useCallback(
+    () => (
+      <IconTooltip
+        className="absolute w-4 h-4 top-0 right-0 mt-4 mr-5"
+        icon={<BsQuestionCircleFill className="w-4 h-4 text-yellow" />}
+        text={
+          <span>
+            If your device is connected and the app is open, please go to{" "}
+            <Link
+              onClick={(e) => {
+                e.preventDefault();
+                navigate(routes.settingsLedger, {
+                  state: { backgroundLocation: location },
+                });
+              }}
+              to={routes.settingsLedger}
+              className="text-yellow"
+            >
+              Settings
+            </Link>{" "}
+            and pair your device with Namadillo.
+          </span>
+        }
+      />
+    ),
+    []
+  );
 
   return (
     <>
@@ -400,7 +480,7 @@ export const TransferModule = ({
             walletAddress={source.walletAddress}
             asset={selectedAsset?.asset}
             isLoadingAssets={source.isLoadingAssets}
-            chain={parseChainInfo(source.chain, source.isShielded)}
+            chain={parseChainInfo(source.chain, source.isShieldedAddress)}
             availableAmount={source.availableAmount}
             availableAmountMinusFees={availableAmountMinusFees}
             amount={source.amount}
@@ -416,22 +496,25 @@ export const TransferModule = ({
               : undefined
             }
             onChangeAmount={source.onChangeAmount}
-            isShielded={source.isShielded}
+            isShieldedAddress={source.isShieldedAddress}
             onChangeShielded={source.onChangeShielded}
             isSubmitting={isSubmitting}
           />
           <i className="flex items-center justify-center w-11 mx-auto -my-8 relative z-10">
             <TransferArrow
-              color={destination.isShielded ? "#FF0" : "#FFF"}
+              color={destination.isShieldedAddress ? "#FF0" : "#FFF"}
               isAnimating={isSubmitting}
             />
           </i>
           <TransferDestination
             wallet={destination.wallet}
             walletAddress={destination.walletAddress}
-            chain={parseChainInfo(destination.chain, destination.isShielded)}
-            isShielded={destination.isShielded}
-            isIbcTransfer={isIbcTransfer}
+            chain={parseChainInfo(
+              destination.chain,
+              destination.isShieldedAddress
+            )}
+            isShieldedAddress={destination.isShieldedAddress}
+            isShieldedTx={isShieldedTx}
             onChangeShielded={destination.onChangeShielded}
             address={destination.customAddress}
             onToggleCustomAddress={
@@ -440,7 +523,11 @@ export const TransferModule = ({
               : undefined
             }
             customAddressActive={customAddressActive}
-            openProviderSelector={onChangeWallet(destination)}
+            openProviderSelector={() =>
+              destination.onChangeWallet && destination.wallet ?
+                destination.onChangeWallet(destination.wallet)
+              : undefined
+            }
             openChainSelector={
               destination.onChangeChain && !isSubmitting ?
                 () => setDestinationChainModalOpen(true)
@@ -459,7 +546,9 @@ export const TransferModule = ({
           />
           {isIbcTransfer && requiresIbcChannels && (
             <IbcChannels
-              isShielded={Boolean(source.isShielded || destination.isShielded)}
+              isShielded={Boolean(
+                source.isShieldedAddress || destination.isShieldedAddress
+              )}
               sourceChannel={ibcOptions.sourceChannel}
               onChangeSource={ibcOptions.onChangeSourceChannel}
               destinationChannel={ibcOptions.destinationChannel}
@@ -474,16 +563,21 @@ export const TransferModule = ({
             />
           )}
           {!isSubmitting && onSubmitTransfer && (
-            <ActionButton
-              outlineColor={buttonColor}
-              backgroundColor={buttonColor}
-              backgroundHoverColor="transparent"
-              textColor="black"
-              textHoverColor={buttonColor}
-              disabled={validationResult !== "Ok" || isSubmitting}
-            >
-              {getButtonText()}
-            </ActionButton>
+            <div className="relative">
+              <ActionButton
+                outlineColor={buttonColor}
+                backgroundColor={buttonColor}
+                backgroundHoverColor="transparent"
+                textColor="black"
+                textHoverColor={buttonColor}
+                disabled={validationResult !== "Ok" || isSubmitting}
+              >
+                {getButtonText()}
+              </ActionButton>
+
+              {validationResult === "NoLedgerConnected" &&
+                renderLedgerTooltip()}
+            </div>
           )}
           {validationResult === "KeychainNotCompatibleWithMasp" && (
             <div className="text-center text-fail text-xs selection:bg-fail selection:text-white mb-12">

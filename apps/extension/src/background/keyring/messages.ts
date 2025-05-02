@@ -8,14 +8,13 @@ import {
 import { Result } from "@namada/utils";
 import { ResponseSign } from "@zondax/ledger-namada";
 import { Message } from "router";
-import { validatePrivateKey, validateProps } from "utils";
+import { validatePrivateKey, validateProps, validateSpendingKey } from "utils";
 import { ROUTE } from "./constants";
 import {
   AccountSecret,
   AccountStore,
   DeleteAccountError,
   MnemonicValidationResponse,
-  ParentAccount,
 } from "./types";
 
 enum MessageType {
@@ -29,9 +28,12 @@ enum MessageType {
   ValidateMnemonic = "validate-mnemonic",
   AddLedgerAccount = "add-ledger-account",
   RevealAccountMnemonic = "reveal-account-mnemonic",
+  RevealSpendingKey = "reveal-spending-key",
+  RevealPrivateKey = "reveal-private-key",
   RenameAccount = "rename-account",
   QueryAccountDetails = "query-account-details",
   AppendLedgerSignature = "append-ledger-signature",
+  GenPaymentAddress = "generate-payment-address",
 }
 
 export class GenerateMnemonicMsg extends Message<string[]> {
@@ -75,6 +77,50 @@ export class RevealAccountMnemonicMsg extends Message<string> {
 
   type(): string {
     return RevealAccountMnemonicMsg.type();
+  }
+}
+
+export class RevealSpendingKeyMsg extends Message<string> {
+  public static type(): MessageType {
+    return MessageType.RevealSpendingKey;
+  }
+
+  constructor(public readonly accountId: string) {
+    super();
+  }
+
+  validate(): void {
+    return;
+  }
+
+  route(): string {
+    return ROUTE;
+  }
+
+  type(): string {
+    return RevealSpendingKeyMsg.type();
+  }
+}
+
+export class RevealPrivateKeyMsg extends Message<string> {
+  public static type(): MessageType {
+    return MessageType.RevealPrivateKey;
+  }
+
+  constructor(public readonly accountId: string) {
+    super();
+  }
+
+  validate(): void {
+    return;
+  }
+
+  route(): string {
+    return ROUTE;
+  }
+
+  type(): string {
+    return RevealPrivateKeyMsg.type();
   }
 }
 
@@ -166,6 +212,12 @@ export class SaveAccountSecretMsg extends Message<AccountStore | false> {
         }
         break;
 
+      case "ShieldedKeys":
+        if (!validateSpendingKey(this.accountSecret.spendingKey).ok) {
+          throw new Error("Invalid spending key!");
+        }
+        break;
+
       default:
         throw new Error("Unknown account secret type");
     }
@@ -190,27 +242,17 @@ export class AddLedgerAccountMsg extends Message<AccountStore | false> {
     public readonly address: string,
     public readonly publicKey: string,
     public readonly bip44Path: Bip44Path,
-    public readonly parentId?: string
+    public readonly zip32Path?: Zip32Path,
+    public readonly extendedViewingKey?: string,
+    public readonly pseudoExtendedKey?: string,
+    public readonly paymentAddress?: string,
+    public readonly diversifierIndex?: number
   ) {
     super();
   }
 
   validate(): void {
-    if (!this.alias) {
-      throw new Error("Alias must not be empty!");
-    }
-
-    if (!this.address) {
-      throw new Error("Address was not provided!");
-    }
-
-    if (!this.publicKey) {
-      throw new Error("Public key was not provided!");
-    }
-
-    if (!this.bip44Path) {
-      throw new Error("BIP44 Path was not provided!");
-    }
+    validateProps(this, ["alias", "address", "publicKey", "bip44Path"]);
   }
 
   route(): string {
@@ -263,19 +305,13 @@ export class SetActiveAccountMsg extends Message<void> {
 
   constructor(
     public readonly accountId: string,
-    public readonly accountType: ParentAccount
+    public readonly accountType: AccountType
   ) {
     super();
   }
 
   validate(): void {
-    if (!this.accountId) {
-      throw new Error("Account ID is not set!");
-    }
-
-    if (!this.accountType) {
-      throw new Error("Account Type is required!");
-    }
+    validateProps(this, ["accountId", "accountType"]);
   }
 
   route(): string {
@@ -288,7 +324,7 @@ export class SetActiveAccountMsg extends Message<void> {
 }
 
 export class GetActiveAccountMsg extends Message<
-  { id: string; type: ParentAccount } | undefined
+  { id: string; type: AccountType } | undefined
 > {
   public static type(): MessageType {
     return MessageType.GetActiveAccount;
@@ -369,10 +405,7 @@ export class QueryAccountDetailsMsg extends Message<
   }
 
   validate(): void {
-    if (!this.address) {
-      throw new Error("Account address is required!");
-    }
-    return;
+    validateProps(this, ["address"]);
   }
 
   route(): string {
@@ -397,12 +430,7 @@ export class AppendLedgerSignatureMsg extends Message<Uint8Array> {
   }
 
   validate(): void {
-    if (!this.txBytes) {
-      throw new Error("txBytes is required!");
-    }
-    if (!this.signature) {
-      throw new Error("signature is required!");
-    }
+    validateProps(this, ["txBytes", "signature"]);
   }
 
   route(): string {
@@ -411,5 +439,27 @@ export class AppendLedgerSignatureMsg extends Message<Uint8Array> {
 
   type(): string {
     return AppendLedgerSignatureMsg.type();
+  }
+}
+
+export class GenPaymentAddressMsg extends Message<DerivedAccount | undefined> {
+  public static type(): MessageType {
+    return MessageType.GenPaymentAddress;
+  }
+
+  constructor(public accountId: string) {
+    super();
+  }
+
+  validate(): void {
+    validateProps(this, ["accountId"]);
+  }
+
+  route(): string {
+    return ROUTE;
+  }
+
+  type(): string {
+    return GenPaymentAddressMsg.type();
   }
 }

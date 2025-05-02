@@ -34,7 +34,7 @@ Used only for serializing transfers during build
 
 #### Defined in
 
-[tx/schema/transfer.ts:190](https://github.com/anoma/namada-interface/blob/04cc0e2c5bbf957adca124841118cb1e5cb7bcab/packages/types/src/tx/schema/transfer.ts#L190)
+[packages/types/src/tx/schema/transfer.ts:225](https://github.com/anoma/namada-interface/blob/dedbae7e806a646649051a09499b31d03fef0091/packages/types/src/tx/schema/transfer.ts#L225)
 
 ___
 
@@ -44,7 +44,7 @@ ___
 
 #### Defined in
 
-[tx/schema/transfer.ts:184](https://github.com/anoma/namada-interface/blob/04cc0e2c5bbf957adca124841118cb1e5cb7bcab/packages/types/src/tx/schema/transfer.ts#L184)
+[packages/types/src/tx/schema/transfer.ts:219](https://github.com/anoma/namada-interface/blob/dedbae7e806a646649051a09499b31d03fef0091/packages/types/src/tx/schema/transfer.ts#L219)
 
 ___
 
@@ -54,4 +54,4 @@ ___
 
 #### Defined in
 
-[tx/schema/transfer.ts:187](https://github.com/anoma/namada-interface/blob/04cc0e2c5bbf957adca124841118cb1e5cb7bcab/packages/types/src/tx/schema/transfer.ts#L187)
+[packages/types/src/tx/schema/transfer.ts:222](https://github.com/anoma/namada-interface/blob/dedbae7e806a646649051a09499b31d03fef0091/packages/types/src/tx/schema/transfer.ts#L222)
